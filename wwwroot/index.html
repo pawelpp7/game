@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regnum</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a24;
+  --gold: #c9a84c; --gold2: #e8c97a; --gold-dim: #7a6030;
+  --red: #c94c4c; --blue: #4c7ac9; --silver: #8899aa; --white: #e8e4d8;
+  --F: 72px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--white); font-family:'Crimson Pro',serif; min-height:100vh; overflow-x:hidden; }
+body::before { content:''; position:fixed; inset:0; background-image: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201,168,76,0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 80% at 80% 90%, rgba(76,122,201,0.05) 0%, transparent 60%); pointer-events:none; z-index:0; }
+
+.screen { display:none; position:relative; z-index:1; }
+.screen.active { display:flex; }
+
+/* AUTH */
+#auth-screen { min-height:100vh; align-items:center; justify-content:center; flex-direction:column; gap:2rem; }
+.auth-title { font-family:'Cinzel',serif; font-size:3.5rem; font-weight:900; letter-spacing:0.15em; color:var(--gold); text-shadow:0 0 40px rgba(201,168,76,0.4); text-align:center; }
+.auth-subtitle { font-size:1.1rem; color:var(--silver); font-style:italic; letter-spacing:0.1em; text-align:center; }
+.auth-box { background:var(--bg2); border:1px solid var(--gold-dim); padding:2.5rem 3rem; width:380px; position:relative; }
+.auth-box::before,.auth-box::after { content:''; position:absolute; width:12px; height:12px; border-color:var(--gold); border-style:solid; }
+.auth-box::before { top:-1px; left:-1px; border-width:2px 0 0 2px; }
+.auth-box::after { bottom:-1px; right:-1px; border-width:0 2px 2px 0; }
+.tab-row { display:flex; margin-bottom:2rem; border-bottom:1px solid var(--gold-dim); }
+.tab { font-family:'Cinzel',serif; font-size:0.85rem; letter-spacing:0.12em; padding:0.6rem 1.2rem; cursor:pointer; color:var(--silver); border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.2s; background:none; border-top:none; border-left:none; border-right:none; }
+.tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+.field-group { margin-bottom:1.2rem; }
+label { display:block; font-family:'Cinzel',serif; font-size:0.7rem; letter-spacing:0.15em; color:var(--gold-dim); margin-bottom:0.4rem; text-transform:uppercase; }
+input[type=text],input[type=password] { width:100%; background:var(--bg3); border:1px solid #2a2a3a; color:var(--white); font-family:'Crimson Pro',serif; font-size:1.05rem; padding:0.6rem 0.8rem; outline:none; transition:border-color 0.2s; }
+input:focus { border-color:var(--gold-dim); }
+.btn { font-family:'Cinzel',serif; font-size:0.85rem; letter-spacing:0.15em; text-transform:uppercase; padding:0.75rem 1.5rem; cursor:pointer; border:none; transition:all 0.2s; width:100%; margin-top:0.5rem; }
+.btn-gold { background:var(--gold); color:var(--bg); }
+.btn-gold:hover { background:var(--gold2); }
+.btn-outline { background:transparent; border:1px solid var(--gold-dim); color:var(--gold); }
+.btn-outline:hover { border-color:var(--gold); background:rgba(201,168,76,0.05); }
+.btn-sm { width:auto; font-size:0.75rem; padding:0.5rem 1rem; }
+.msg { font-size:0.9rem; margin-top:0.8rem; min-height:1.2em; }
+.msg.error { color:var(--red); }
+.msg.ok { color:#6abf6a; }
+
+/* LOBBY */
+#lobby-screen { min-height:100vh; flex-direction:column; align-items:center; padding:2rem; gap:2rem; }
+.top-bar { width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--gold-dim); padding-bottom:1rem; }
+.top-bar-title { font-family:'Cinzel',serif; font-size:1.4rem; color:var(--gold); letter-spacing:0.1em; }
+.user-badge { font-size:0.9rem; color:var(--silver); display:flex; align-items:center; gap:1rem; }
+.lobby-grid { display:grid; grid-template-columns:1fr 1fr; gap:2rem; width:100%; max-width:900px; }
+.panel { background:var(--bg2); border:1px solid #1e1e2a; padding:1.5rem; }
+.panel-title { font-family:'Cinzel',serif; font-size:0.85rem; letter-spacing:0.15em; color:var(--gold); margin-bottom:1.2rem; text-transform:uppercase; }
+.game-list { display:flex; flex-direction:column; gap:0.6rem; }
+.game-item { background:var(--bg3); border:1px solid #1e1e2a; padding:0.8rem 1rem; display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; cursor:pointer; transition:border-color 0.2s; }
+.game-item:hover { border-color:var(--gold-dim); }
+.badge { font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.1em; padding:0.2rem 0.5rem; background:rgba(201,168,76,0.15); color:var(--gold); border:1px solid var(--gold-dim); }
+.history-item { background:var(--bg3); border:1px solid #1e1e2a; padding:0.7rem 1rem; font-size:0.9rem; color:var(--silver); display:flex; justify-content:space-between; cursor:pointer; }
+.rwin { color:#6abf6a; font-family:'Cinzel',serif; font-size:0.75rem; }
+.rloss { color:var(--red); font-family:'Cinzel',serif; font-size:0.75rem; }
+.rongoing { color:var(--gold); font-family:'Cinzel',serif; font-size:0.75rem; }
+.join-row { display:flex; gap:0.5rem; }
+.join-row input { flex:1; }
+
+/* GAME */
+#game-screen { min-height:100vh; flex-direction:column; align-items:center; padding:1.5rem; gap:1.5rem; }
+.game-header { width:100%; max-width:1200px; display:flex; justify-content:space-between; align-items:center; }
+.status-bar { font-family:'Cinzel',serif; font-size:0.9rem; letter-spacing:0.1em; padding:0.5rem 1.2rem; border:1px solid var(--gold-dim); color:var(--gold); }
+.game-layout { display:flex; gap:2rem; align-items:flex-start; width:100%; max-width:1200px; }
+
+/* ══════════════════════════════════════════════
+   PLANSZA
+   
+   Plansza 7×8 pól. Każde pole ma rozmiar F×F.
+   Narożniki są na ROGACH pól — siatka 8×9 punktów.
+   
+   Narożnik (row, col) znajduje się w punkcie (col*F, row*F)
+   licząc od lewego-górnego rogu planszy.
+   
+   Pole (row, col) zajmuje obszar od (col*F, row*F) do ((col+1)*F, (row+1)*F).
+   
+   OBE warstwy zaczynają się od (0,0).
+   Warstwa pól ma 7 kolumn × 8 wierszy = kończy się na (7F, 8F).
+   Warstwa narożników ma 8 kolumn × 9 wierszy = kończy się na (8F, 9F).
+   
+   Narożnik (0,0) siedzi na rogu pola (0,0) — lewy-górny.
+   Narożnik (0,7) siedzi na rogu pola (0,6) — prawy-górny.
+   ══════════════════════════════════════════════ */
+
+.board-wrap { position:relative; flex-shrink:0; }
+
+.board-container {
+  position: relative;
+  /* Szerokość: 8 narożników = 8*F, Wysokość: 9 narożników = 9*F */
+  width: calc(8 * var(--F));
+  height: calc(9 * var(--F));
+}
+
+/* Warstwa pól — pozycja absolutna od (0,0) */
+/* Pola zajmują przestrzeń od (0,0) do (7F, 8F) */
+/* Narożniki będą na rogach pól automatycznie */
+.fields-layer {
+  position: absolute;
+  top: 0; left: 0;
+  display: grid;
+  grid-template-columns: repeat(7, var(--F));
+  grid-template-rows: repeat(8, var(--F));
+  width: calc(7 * var(--F));
+  height: calc(8 * var(--F));
+}
+
+.field {
+  width: var(--F); height: var(--F);
+  border: 1px solid #1e2030;
+  position: relative;
+}
+.field.light { background:#1a1e2c; }
+.field.dark  { background:#13161f; }
+.field.tower-p1 { background:rgba(76,122,201,0.3) !important; }
+.field.tower-p2 { background:rgba(201,76,76,0.3) !important; }
+.field.king-p1  { background:rgba(76,122,201,0.15) !important; }
+.field.king-p2  { background:rgba(201,76,76,0.15) !important; }
+.field.highlight { background:rgba(201,168,76,0.2) !important; box-shadow:inset 0 0 0 2px rgba(201,168,76,0.5); cursor:pointer; }
+
+/* Warstwa narożników — pozycja absolutna od (0,0) */
+/* Każda komórka ma rozmiar F×F */
+/* Narożnik (r,c) = komórka w wierszu r, kolumnie c */
+/* Lewy-górny róg komórki (r,c) = (c*F, r*F) */
+/* Pionek stoi na lewym-górnym rogu komórki czyli na przecięciu pól */
+.corners-layer {
+  position: absolute;
+  top: 0; left: 0;
+  display: grid;
+  grid-template-columns: repeat(8, var(--F));
+  grid-template-rows: repeat(9, var(--F));
+  width: calc(8 * var(--F));
+  height: calc(9 * var(--F));
+  pointer-events: none;
+}
+
+.corner-cell {
+  width: var(--F); height: var(--F);
+  position: relative;
+  pointer-events: auto;
+}
+
+/* Kropka narożnika — w lewym-górnym rogu komórki (czyli na przecięciu pól) */
+.corner-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #252530;
+  position: absolute;
+  top: 0; left: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Pionek — w lewym-górnym rogu komórki */
+.pawn-piece {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 0.8rem;
+  position: absolute;
+  top: 0; left: 0;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: all 0.15s;
+  z-index: 20;
+  user-select: none;
+}
+.pawn-piece.p1 { background:rgba(76,122,201,0.95); border-color:#7aaae8; color:#fff; }
+.pawn-piece.p2 { background:rgba(201,76,76,0.95); border-color:#e87a7a; color:#fff; }
+.pawn-piece.selected { box-shadow:0 0 0 3px var(--gold), 0 0 15px rgba(201,168,76,0.6); transform:translate(-50%,-50%) scale(1.2); }
+.pawn-piece:hover:not(.selected) { transform:translate(-50%,-50%) scale(1.1); }
+
+/* Podświetlenie narożnika */
+.corner-cell.highlight .corner-dot { width:18px; height:18px; background:rgba(201,168,76,0.55); border:2px solid var(--gold); cursor:pointer; }
+.corner-cell.highlight { cursor:pointer; }
+
+/* Figury na polach */
+.field-piece { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; z-index:10; user-select:none; transition:all 0.15s; }
+.field-piece:hover { transform:translate(-50%,-50%) scale(1.05); }
+.piece-icon { width:46px; height:46px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; border-radius:4px; border:2px solid; transition:all 0.15s; }
+.piece-icon.p1 { background:rgba(76,122,201,0.2); border-color:#4c7ac9; }
+.piece-icon.p2 { background:rgba(201,76,76,0.2); border-color:#c94c4c; }
+.piece-icon.sel { box-shadow:0 0 0 3px var(--gold); }
+.piece-label { font-family:'Cinzel',serif; font-size:0.5rem; letter-spacing:0.05em; opacity:0.7; }
+
+/* SIDE PANEL */
+.side-panel { flex:1; display:flex; flex-direction:column; gap:1rem; min-width:220px; max-width:280px; }
+.info-box { background:var(--bg2); border:1px solid #1e1e2a; padding:1.2rem; }
+.info-box-title { font-family:'Cinzel',serif; font-size:0.7rem; letter-spacing:0.15em; color:var(--gold-dim); text-transform:uppercase; margin-bottom:0.8rem; }
+.turn-indicator { font-family:'Cinzel',serif; font-size:1.1rem; color:var(--gold); letter-spacing:0.05em; }
+.action-log { height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:0.3rem; }
+.log-entry { font-size:0.82rem; color:var(--silver); padding:0.2rem 0; border-bottom:1px solid #1e1e2a; }
+.action-mode { display:flex; flex-direction:column; gap:0.5rem; }
+.mode-btn { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.08em; padding:0.55rem; cursor:pointer; border:1px solid #2a2a3a; background:transparent; color:var(--silver); text-align:left; transition:all 0.2s; text-transform:uppercase; }
+.mode-btn.active { color:var(--gold); border-color:var(--gold-dim); background:rgba(201,168,76,0.05); }
+.mode-btn:disabled { opacity:0.35; cursor:not-allowed; }
+.dead-pawns { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.dead-pawn-dot { width:22px; height:22px; border-radius:50%; border:1px solid; display:flex; align-items:center; justify-content:center; font-size:0.6rem; cursor:pointer; transition:all 0.15s; opacity:0.6; }
+.dead-pawn-dot:hover { opacity:1; }
+.dead-pawn-dot.p1 { border-color:#4c7ac9; color:#4c7ac9; }
+.dead-pawn-dot.p2 { border-color:#c94c4c; color:#c94c4c; }
+.dead-pawn-dot.selected { opacity:1; box-shadow:0 0 0 2px var(--gold); }
+.confirm-btn { font-family:'Cinzel',serif; font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; padding:0.7rem; cursor:pointer; border:1px solid var(--gold-dim); background:rgba(201,168,76,0.1); color:var(--gold); width:100%; transition:all 0.2s; margin-top:0.5rem; }
+.confirm-btn:hover:not(:disabled) { background:rgba(201,168,76,0.2); }
+.confirm-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.legend { display:flex; flex-direction:column; gap:0.4rem; }
+.legend-item { display:flex; align-items:center; gap:0.6rem; font-size:0.82rem; color:var(--silver); }
+
+/* GAME OVER */
+.game-over-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); display:none; align-items:center; justify-content:center; z-index:100; flex-direction:column; gap:1.5rem; }
+.game-over-overlay.show { display:flex; }
+.game-over-title { font-family:'Cinzel',serif; font-size:3rem; color:var(--gold); text-shadow:0 0 40px rgba(201,168,76,0.6); letter-spacing:0.2em; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen" class="screen active">
+  <div class="auth-title">REGNUM</div>
+  <div class="auth-subtitle">gra strategiczna</div>
+  <div class="auth-box">
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab('login',event)">Logowanie</button>
+      <button class="tab" onclick="switchTab('register',event)">Rejestracja</button>
+    </div>
+    <div id="login-form">
+      <div class="field-group"><label>Nazwa gracza</label><input type="text" id="login-username" placeholder="Twoja nazwa..."></div>
+      <div class="field-group"><label>Hasło</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <button class="btn btn-gold" onclick="doLogin()">Wejdź do gry</button>
+      <div class="msg" id="login-msg"></div>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="field-group"><label>Nazwa gracza</label><input type="text" id="reg-username" placeholder="Wymyśl nazwę..."></div>
+      <div class="field-group"><label>Hasło</label><input type="password" id="reg-password" placeholder="••••••••"></div>
+      <button class="btn btn-gold" onclick="doRegister()">Utwórz konto</button>
+      <div class="msg" id="reg-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobby-screen" class="screen">
+  <div class="top-bar">
+    <div class="top-bar-title">REGNUM — Lobby</div>
+    <div class="user-badge"><span id="lobby-username"></span><button class="btn btn-outline btn-sm" onclick="logout()">Wyloguj</button></div>
+  </div>
+  <div class="lobby-grid">
+    <div class="panel">
+      <div class="panel-title">Nowa gra</div>
+      <button class="btn btn-gold" onclick="createGame()" style="margin-bottom:1.2rem">Utwórz grę</button>
+      <div class="panel-title" style="margin-top:1rem">Dołącz do gry</div>
+      <div class="join-row">
+        <input type="text" id="join-id" placeholder="ID gry...">
+        <button class="btn btn-outline btn-sm" onclick="joinGame()">Dołącz</button>
+      </div>
+      <div class="msg" id="lobby-msg"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Otwarte gry</div>
+      <div class="game-list" id="open-games"><div style="color:var(--silver);font-size:0.9rem">Ładowanie...</div></div>
+    </div>
+    <div class="panel" style="grid-column:1/-1">
+      <div class="panel-title">Historia gier</div>
+      <div class="game-list" id="history-list"><div style="color:var(--silver);font-size:0.9rem">Ładowanie...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game-screen" class="screen">
+  <div class="game-header">
+    <div class="top-bar-title">REGNUM — <span id="game-id-label"></span></div>
+    <div style="display:flex;gap:1rem;align-items:center">
+      <div class="status-bar" id="turn-bar">Oczekiwanie...</div>
+      <button class="btn btn-outline btn-sm" onclick="goLobby()">← Lobby</button>
+    </div>
+  </div>
+  <div class="game-layout">
+    <div class="board-wrap">
+      <div id="board-container" class="board-container">
+        <div class="fields-layer" id="fields-layer"></div>
+        <div class="corners-layer" id="corners-layer"></div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="info-box">
+        <div class="info-box-title">Tura</div>
+        <div class="turn-indicator" id="turn-indicator">—</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-title">Akcja</div>
+        <div class="action-mode">
+          <button class="mode-btn active" id="mode-pawn"      onclick="setMode('pawn')">⚔ Ruch pionkiem</button>
+          <button class="mode-btn"        id="mode-bonus"     onclick="setMode('bonus')" disabled>⭐ Bonus ruch pionkiem</button>
+          <button class="mode-btn"        id="mode-tower"     onclick="setMode('tower')">🗼 Ruch wieżą</button>
+          <button class="mode-btn"        id="mode-resurrect" onclick="setMode('resurrect')">✨ Wskrześ pionka</button>
+        </div>
+      </div>
+      <div class="info-box" id="resurrect-panel" style="display:none">
+        <div class="info-box-title">Zbici pionkowie</div>
+        <div class="dead-pawns" id="dead-pawns-list"></div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-title">Zaplanowana tura</div>
+        <div style="font-size:0.85rem;color:var(--silver);line-height:1.8;white-space:pre-line" id="planned-display">Brak zaplanowanych akcji</div>
+        <button class="confirm-btn" id="confirm-turn-btn" onclick="confirmTurn()" disabled>Zatwierdź turę</button>
+      </div>
+      <div class="info-box">
+        <div class="info-box-title">Log akcji</div>
+        <div class="action-log" id="action-log"></div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-title">Legenda</div>
+        <div class="legend">
+          <div class="legend-item"><span>⚔</span> Pionek (narożnik)</div>
+          <div class="legend-item"><span>🗼</span> Wieża (pole)</div>
+          <div class="legend-item"><span>👑</span> Król (pole)</div>
+          <div class="legend-item"><span style="color:var(--blue)">●</span> Gracz 1 (niebieski)</div>
+          <div class="legend-item"><span style="color:var(--red)">●</span> Gracz 2 (czerwony)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="game-over-overlay" id="game-over">
+  <div class="game-over-title" id="game-over-title">KONIEC GRY</div>
+  <div style="font-size:1.2rem;color:var(--silver)" id="game-over-sub"></div>
+  <button class="btn btn-gold" style="width:200px" onclick="goLobby()">Powrót do lobby</button>
+</div>
+
+<script>
+const API        = 'http://localhost:5085/api';
+const FIELD_COLS = 7;
+const FIELD_ROWS = 8;
+const COR_COLS   = 8;  // FIELD_COLS + 1
+const COR_ROWS   = 9;  // FIELD_ROWS + 1
+const F          = 72; // px
+
+let token        = localStorage.getItem('token') || '';
+let myUserId     = parseInt(localStorage.getItem('userId') || '0');
+let myUsername   = localStorage.getItem('username') || '';
+let currentGameId   = null;
+let currentGameData = null;
+let pollInterval    = null;
+let boardState      = null;
+let planned = { pawnAction:null, bonusPawnAction:null, towerAction:null, bonusPawnId:null };
+let selectedPiece    = null;
+let selectedDeadPawn = null;
+let currentMode      = 'pawn';
+
+// ── API ──
+async function api(method, path, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  if (body)  opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(API + path, opts);
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch { data = text; }
+    return { ok: res.ok, status: res.status, data };
+  } catch(e) { return { ok:false, status:0, data: e.message }; }
+}
+
+// ── AUTH ──
+function switchTab(tab, e) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('login-form').style.display    = tab==='login'    ? 'block':'none';
+  document.getElementById('register-form').style.display = tab==='register' ? 'block':'none';
+}
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const msg = document.getElementById('login-msg');
+  if (!username||!password) { msg.textContent='Uzupełnij pola'; msg.className='msg error'; return; }
+  const r = await api('POST','/auth/login',{username,password});
+  if (r.ok) { saveAuth(r.data); showLobby(); }
+  else { msg.textContent='Błędne dane logowania'; msg.className='msg error'; }
+}
+async function doRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const msg = document.getElementById('reg-msg');
+  if (!username||!password) { msg.textContent='Uzupełnij pola'; msg.className='msg error'; return; }
+  const r = await api('POST','/auth/register',{username,password});
+  if (r.ok) { saveAuth(r.data); showLobby(); }
+  else { msg.textContent='Rejestracja nieudana'; msg.className='msg error'; }
+}
+function saveAuth(data) {
+  token=data.token; myUsername=data.username;
+  localStorage.setItem('token',token); localStorage.setItem('username',myUsername);
+  try {
+    const p = JSON.parse(atob(token.split('.')[1]));
+    myUserId = parseInt(p['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']||'0');
+    localStorage.setItem('userId',myUserId);
+  } catch {}
+}
+function logout() { token=''; myUserId=0; myUsername=''; localStorage.clear(); showScreen('auth-screen'); }
+
+// ── SCREENS ──
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function showLobby() { document.getElementById('lobby-username').textContent=myUsername; showScreen('lobby-screen'); loadLobby(); }
+function goLobby()   { clearInterval(pollInterval); currentGameId=null; showLobby(); }
+
+async function loadLobby() {
+  const hist = await api('GET','/game/history');
+  if (!hist.ok) return;
+  renderHistory(hist.data);
+  const waiting = (hist.data||[]).filter(g=>g.status===0&&!g.player2Id);
+  document.getElementById('open-games').innerHTML = waiting.length===0
+    ? '<div style="color:var(--silver);font-size:0.9rem">Brak otwartych gier</div>'
+    : waiting.map(g=>`<div class="game-item" onclick="enterGame(${g.id})"><span style="color:var(--gold-dim);font-family:Cinzel,serif;font-size:0.75rem">#${g.id}</span><span style="color:var(--silver)">${g.player1?.username||'Gracz'}</span><span class="badge">OCZEKUJE</span></div>`).join('');
+}
+function renderHistory(games) {
+  const el = document.getElementById('history-list');
+  if (!games||games.length===0) { el.innerHTML='<div style="color:var(--silver);font-size:0.9rem">Brak historii</div>'; return; }
+  el.innerHTML = games.slice(0,8).map(g=>{
+    const opp = g.player1Id===myUserId ? g.player2?.username : g.player1?.username;
+    let result,cls;
+    if (g.status===2) { result=g.winnerId===myUserId?'WYGRANA':'PRZEGRANA'; cls=g.winnerId===myUserId?'rwin':'rloss'; }
+    else { result=g.status===0?'OCZEKUJE':'W TOKU'; cls='rongoing'; }
+    return `<div class="history-item" onclick="enterGame(${g.id})"><span>#${g.id} vs ${opp||'???'}</span><span class="${cls}">${result}</span></div>`;
+  }).join('');
+}
+
+// ── GAME ──
+async function createGame() {
+  const r = await api('POST','/game/create');
+  const msg = document.getElementById('lobby-msg');
+  if (r.ok) { msg.textContent=`Gra #${r.data.id} utworzona!`; msg.className='msg ok'; enterGame(r.data.id); }
+  else { msg.textContent='Błąd tworzenia gry'; msg.className='msg error'; }
+}
+async function joinGame() {
+  const id = document.getElementById('join-id').value.trim(); if (!id) return;
+  const r = await api('POST',`/game/${id}/join`);
+  const msg = document.getElementById('lobby-msg');
+  if (r.ok) enterGame(id); else { msg.textContent='Nie można dołączyć'; msg.className='msg error'; }
+}
+async function enterGame(id) {
+  currentGameId=id;
+  document.getElementById('game-id-label').textContent=`Gra #${id}`;
+  showScreen('game-screen'); resetTurnPlan(); buildBoard();
+  await refreshGame();
+  clearInterval(pollInterval);
+  pollInterval = setInterval(refreshGame,3000);
+}
+async function refreshGame() {
+  const r = await api('GET',`/game/${currentGameId}`);
+  if (!r.ok) return;
+  currentGameData=r.data;
+  boardState=JSON.parse(r.data.boardState);
+  renderBoard(); updateTurnBar();
+  if (r.data.status===2) { clearInterval(pollInterval); showGameOver(r.data.winnerId); }
+}
+
+// Kto ma teraz turę: 0=P1, 1=P2
+function currentOwner() {
+  if (!currentGameData) return 0;
+  return currentGameData.currentTurnPlayerId===currentGameData.player1Id ? 0 : 1;
+}
+
+// ── BOARD ──
+function buildBoard() {
+  const fl=document.getElementById('fields-layer');
+  const cl=document.getElementById('corners-layer');
+  fl.innerHTML=''; cl.innerHTML='';
+
+  for (let r=0;r<FIELD_ROWS;r++) for (let c=0;c<FIELD_COLS;c++) {
+    const f=document.createElement('div');
+    f.className='field '+((r+c)%2===0?'light':'dark');
+    f.id=`field-${r}-${c}`;
+    f.addEventListener('click',()=>onFieldClick(r,c));
+    fl.appendChild(f);
+  }
+
+  for (let r=0;r<COR_ROWS;r++) for (let c=0;c<COR_COLS;c++) {
+    const cell=document.createElement('div');
+    cell.className='corner-cell'; cell.id=`corner-${r}-${c}`;
+    const dot=document.createElement('div'); dot.className='corner-dot';
+    cell.appendChild(dot);
+    cell.addEventListener('click',()=>onCornerClick(r,c));
+    cl.appendChild(cell);
+  }
+}
+
+function renderBoard() {
+  if (!boardState) return;
+  clearHighlights();
+
+  // Reset pól
+  for (let r=0;r<FIELD_ROWS;r++) for (let c=0;c<FIELD_COLS;c++) {
+    const f=document.getElementById(`field-${r}-${c}`);
+    if (!f) continue;
+    f.className='field '+((r+c)%2===0?'light':'dark');
+    f.style.outline='';
+    f.querySelectorAll('.field-piece').forEach(e=>e.remove());
+  }
+  document.querySelectorAll('.pawn-piece').forEach(e=>e.remove());
+
+  // Wieże
+  (boardState.towers||[]).filter(t=>t.isAlive).forEach(t=>{
+    const f=document.getElementById(`field-${t.row}-${t.col}`); if (!f) return;
+    const cls=t.owner===0?'p1':'p2';
+    f.classList.add(`tower-${cls}`);
+    const isSel=selectedPiece?.type==='tower'&&selectedPiece.id===t.id;
+    const el=document.createElement('div'); el.className='field-piece';
+    el.innerHTML=`<div class="piece-icon ${cls}${isSel?' sel':''}">🗼</div><div class="piece-label">${cls.toUpperCase()}</div>`;
+    el.addEventListener('click',e=>{e.stopPropagation();onFieldPieceClick('tower',t.id,t.row,t.col,t.owner);});
+    f.appendChild(el);
+    [[t.row-1,t.col],[t.row+1,t.col],[t.row,t.col-1],[t.row,t.col+1]].forEach(([br,bc])=>{
+      const bf=document.getElementById(`field-${br}-${bc}`);
+      if (bf) bf.style.outline=`2px inset ${t.owner===0?'rgba(76,122,201,0.5)':'rgba(201,76,76,0.5)'}`;
+    });
+  });
+
+  // Królowie
+  (boardState.kings||[]).filter(k=>k.isAlive).forEach(k=>{
+    const f=document.getElementById(`field-${k.row}-${k.col}`); if (!f) return;
+    const cls=k.owner===0?'p1':'p2';
+    f.classList.add(`king-${cls}`);
+    const el=document.createElement('div'); el.className='field-piece';
+    el.innerHTML=`<div class="piece-icon ${cls}">👑</div><div class="piece-label">${cls.toUpperCase()}</div>`;
+    f.appendChild(el);
+  });
+
+  // Pionki na narożnikach
+  (boardState.pawns||[]).filter(p=>p.isAlive).forEach(p=>{
+    const cell=document.getElementById(`corner-${p.row}-${p.col}`); if (!cell) return;
+    const cls=p.owner===0?'p1':'p2';
+    const isSel=selectedPiece?.type==='pawn'&&selectedPiece.id===p.id;
+    const dot=document.createElement('div');
+    dot.className=`pawn-piece ${cls}${isSel?' selected':''}`;
+    dot.textContent='⚔';
+    dot.addEventListener('click',e=>{e.stopPropagation();onPawnClick(p.id,p.row,p.col,p.owner);});
+    cell.appendChild(dot);
+  });
+
+  renderDeadPawns();
+  updatePlannedDisplay();
+}
+
+function renderDeadPawns() {
+  const list=document.getElementById('dead-pawns-list');
+  const owner=currentOwner();
+  const dead=(boardState?.pawns||[]).filter(p=>p.isDead&&p.owner===owner);
+  list.innerHTML=dead.length===0
+    ? '<span style="color:var(--silver);font-size:0.85rem">Brak</span>'
+    : dead.map(p=>{const cls=p.owner===0?'p1':'p2'; const sel=selectedDeadPawn===p.id?' selected':''; return `<div class="dead-pawn-dot ${cls}${sel}" onclick="selectDeadPawn(${p.id})">⚔</div>`;}).join('');
+}
+
+// ── INTERAKCJA ──
+function setMode(mode) {
+  currentMode=mode; selectedPiece=null; clearHighlights();
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`mode-${mode}`).classList.add('active');
+  document.getElementById('resurrect-panel').style.display=mode==='resurrect'?'block':'none';
+  renderBoard();
+}
+function selectDeadPawn(id) { selectedDeadPawn=id; renderDeadPawns(); }
+
+function onPawnClick(id,row,col,owner) {
+  const co=currentOwner();
+  if (currentMode==='pawn'&&owner===co) {
+    selectedPiece={type:'pawn',id,row,col}; clearHighlights(); highlightPawnMoves(row,col); renderBoard();
+  } else if (currentMode==='bonus'&&owner===co&&planned.bonusPawnId===id) {
+    selectedPiece={type:'pawn',id,row,col}; clearHighlights(); highlightPawnMoves(row,col); renderBoard();
+  }
+}
+function onFieldPieceClick(type,id,row,col,owner) {
+  if (currentMode==='tower'&&type==='tower'&&owner===currentOwner()) {
+    selectedPiece={type:'tower',id,row,col}; clearHighlights(); highlightTowerMoves(row,col); renderBoard();
+  }
+}
+function onCornerClick(row,col) {
+  if (!selectedPiece) return;
+  if ((currentMode==='pawn'||currentMode==='bonus')&&selectedPiece.type==='pawn') {
+    if (!isValidCornerMove(selectedPiece.row,selectedPiece.col,row,col)) return;
+    const action={pieceId:selectedPiece.id,toRow:row,toCol:col,type:'MovePawn'};
+    const ally=(boardState.pawns||[]).find(p=>p.row===row&&p.col===col&&p.isAlive&&p.owner===currentOwner()&&p.id!==selectedPiece.id);
+    if (currentMode==='pawn') {
+      planned.pawnAction=action;
+      if (ally) { planned.bonusPawnId=ally.id; document.getElementById('mode-bonus').disabled=false; addLog(`⭐ Bonus dla #${ally.id}`); }
+      else { planned.bonusPawnId=null; document.getElementById('mode-bonus').disabled=true; planned.bonusPawnAction=null; }
+      addLog(`⚔ Pionek → (${row},${col})`);
+    } else {
+      planned.bonusPawnAction=action; addLog(`⭐ Bonus #${selectedPiece.id} → (${row},${col})`);
+    }
+    selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
+  }
+}
+function onFieldClick(row,col) {
+  if (!selectedPiece) return;
+  if (currentMode==='tower'&&selectedPiece.type==='tower') {
+    if (!isValidTowerMove(selectedPiece.row,selectedPiece.col,row,col)) return;
+    planned.towerAction={type:'MoveTower',pieceId:selectedPiece.id,toRow:row,toCol:col};
+    addLog(`🗼 Wieża → (${row},${col})`); selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
+  } else if (currentMode==='resurrect'&&selectedDeadPawn!==null) {
+    planned.towerAction={type:'Resurrect',pieceId:selectedDeadPawn,toRow:row,toCol:col};
+    addLog(`✨ Wskrzeszenie #${selectedDeadPawn}`); selectedDeadPawn=null; renderBoard(); updateConfirmBtn();
+  }
+}
+
+function highlightPawnMoves(row,col) {
+  [[row-1,col],[row+1,col],[row,col-1],[row,col+1]].forEach(([r,c])=>{
+    if (r<0||r>=COR_ROWS||c<0||c>=COR_COLS) return;
+    if (isBlockedByEnemyTower(r,c)) return;
+    const cell=document.getElementById(`corner-${r}-${c}`); if (cell) cell.classList.add('highlight');
+  });
+}
+function highlightTowerMoves(row,col) {
+  [[row-1,col],[row+1,col],[row,col-1],[row,col+1]].forEach(([r,c])=>{
+    if (r<0||r>=FIELD_ROWS||c<0||c>=FIELD_COLS) return;
+    const taken=(boardState.towers||[]).some(t=>t.isAlive&&t.row===r&&t.col===c)||(boardState.kings||[]).some(k=>k.isAlive&&k.row===r&&k.col===c);
+    if (!taken) { const f=document.getElementById(`field-${r}-${c}`); if(f) f.classList.add('highlight'); }
+  });
+}
+function isBlockedByEnemyTower(cr,cc) {
+  const enemy=currentOwner()===0?1:0;
+  return (boardState.towers||[]).some(t=>{
+    if (t.owner!==enemy||!t.isAlive) return false;
+    return [[t.row,t.col],[t.row,t.col+1],[t.row+1,t.col],[t.row+1,t.col+1]].some(([r,c])=>r===cr&&c===cc);
+  });
+}
+function isValidCornerMove(fr,fc,tr,tc) { const dr=Math.abs(tr-fr),dc=Math.abs(tc-fc); return (dr===1&&dc===0)||(dr===0&&dc===1); }
+function isValidTowerMove(fr,fc,tr,tc)  { const dr=Math.abs(tr-fr),dc=Math.abs(tc-fc); return (dr===1&&dc===0)||(dr===0&&dc===1); }
+function clearHighlights() {
+  document.querySelectorAll('.corner-cell.highlight').forEach(c=>c.classList.remove('highlight'));
+  document.querySelectorAll('.field.highlight').forEach(f=>f.classList.remove('highlight'));
+}
+
+// ── TURA ──
+function updateConfirmBtn() { document.getElementById('confirm-turn-btn').disabled=!planned.pawnAction; updatePlannedDisplay(); }
+function updatePlannedDisplay() {
+  const parts=[];
+  if (planned.pawnAction)      parts.push(`⚔ Pionek → (${planned.pawnAction.toRow},${planned.pawnAction.toCol})`);
+  if (planned.bonusPawnAction) parts.push(`⭐ Bonus → (${planned.bonusPawnAction.toRow},${planned.bonusPawnAction.toCol})`);
+  if (planned.towerAction) {
+    if (planned.towerAction.type==='Resurrect') parts.push(`✨ Wskrzeszenie #${planned.towerAction.pieceId}`);
+    else parts.push(`🗼 Wieża → (${planned.towerAction.toRow},${planned.towerAction.toCol})`);
+  }
+  document.getElementById('planned-display').textContent=parts.length?parts.join('\n'):'Brak zaplanowanych akcji';
+}
+async function confirmTurn() {
+  if (!planned.pawnAction) return;
+  const r=await api('POST',`/game/${currentGameId}/turn`,{pawnAction:planned.pawnAction,bonusPawnAction:planned.bonusPawnAction||null,towerAction:planned.towerAction||null});
+  if (r.ok) { addLog('✓ Tura wykonana'); resetTurnPlan(); await refreshGame(); }
+  else { addLog('✗ '+(typeof r.data==='string'?r.data:JSON.stringify(r.data))); }
+}
+function resetTurnPlan() {
+  planned={pawnAction:null,bonusPawnAction:null,towerAction:null,bonusPawnId:null};
+  selectedPiece=null; selectedDeadPawn=null; currentMode='pawn';
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-pawn')?.classList.add('active');
+  document.getElementById('mode-bonus').disabled=true;
+  document.getElementById('resurrect-panel').style.display='none';
+  updatePlannedDisplay();
+  document.getElementById('confirm-turn-btn').disabled=true;
+}
+
+// ── UI ──
+function updateTurnBar() {
+  const bar=document.getElementById('turn-bar'); const ind=document.getElementById('turn-indicator');
+  if (!currentGameData) return;
+  if (currentGameData.status===0) { bar.textContent='Oczekiwanie na przeciwnika...'; ind.textContent='—'; return; }
+  if (currentGameData.status===2) { bar.textContent='Koniec gry'; ind.textContent='Koniec'; return; }
+  const isP1=currentOwner()===0;
+  bar.textContent=isP1?'🔵 Tura Gracza 1':'🔴 Tura Gracza 2';
+  bar.style.borderColor=isP1?'var(--blue)':'var(--red)';
+  ind.textContent=isP1?'Gracz 1 (Niebieski)':'Gracz 2 (Czerwony)';
+  ind.style.color=isP1?'var(--blue)':'var(--red)';
+}
+function addLog(msg) {
+  const log=document.getElementById('action-log');
+  const e=document.createElement('div'); e.className='log-entry'; e.textContent=msg;
+  log.appendChild(e); log.scrollTop=log.scrollHeight;
+}
+function showGameOver(winnerId) {
+  document.getElementById('game-over').classList.add('show');
+  const isW=winnerId===myUserId;
+  document.getElementById('game-over-title').textContent=isW?'ZWYCIĘSTWO':'KONIEC GRY';
+  document.getElementById('game-over-title').style.color=isW?'var(--gold)':'var(--red)';
+  document.getElementById('game-over-sub').textContent=isW?'Twój król panuje nad wszystkimi':'Gra zakończona';
+}
+
+if (token) showLobby();
+</script>
+</body>
+</html>
