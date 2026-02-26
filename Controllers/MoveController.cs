@@ -17,7 +17,7 @@ public class MoveController(GameService gameService) : ControllerBase
     public async Task<IActionResult> ExecuteTurn(int gameId, TurnDto dto)
     {
         var (success, message, game) = await gameService.ExecuteTurnAsync(gameId, UserId, dto);
-        if (!success) return BadRequest(message);
+        if (!success) return BadRequest(new { error = message });
         return Ok(new
         {
             message,

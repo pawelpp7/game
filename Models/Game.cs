@@ -10,7 +10,7 @@ public class Game
     public int? WinnerId { get; set; }
     public GameStatus Status { get; set; } = GameStatus.Waiting;
     public int CurrentTurnPlayerId { get; set; }
-    public string BoardState { get; set; } = string.Empty; // JSON planszy
+    public BoardState BoardState { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? FinishedAt { get; set; }
 

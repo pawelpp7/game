@@ -18,11 +18,6 @@ public class GameService(AppDbContext db)
     {
         var board = new BoardState();
 
-        // Wieze i królowie na polach (row=0 gracz2, row=7 gracz1)
-        // Kolumny pól: 0-6 (7 pól)
-        // Wieże na kolumnach 0,2,4,6 (pola 1,3,5,7)
-        // Królowie na kolumnach 1,5 (pola 2,6)
-
         int tId = 0, kId = 0, pId = 0;
 
         foreach (var (owner, fieldRow) in new[] {
@@ -39,36 +34,40 @@ public class GameService(AppDbContext db)
             board.Kings.Add(new King { Id = kId++, Owner = owner, Row = fieldRow, Col = 5 });
         }
 
-        // Pionki na narożnikach (siatka 8 kol x 9 wierszy)
-        // Gracz 2: 2 rzędy narożników (row=1,2), Gracz 1: rzędy (row=6,7)
-        // 2 linie odstępu między graczami
-
         foreach (var (owner, rows) in new[] {
             (PieceOwner.Player2, new[] { 1, 2 }),
             (PieceOwner.Player1, new[] { 6, 7 })
         })
         {
             foreach (var row in rows)
-                for (int col = 0; col < CornerCols; col++)
-                    board.Pawns.Add(new Pawn { Id = pId++, Owner = owner, Row = row, Col = col });
+            {
+                for (int col = 0; col < 8; col++)
+                {
+                    var pawn = new Pawn { Id = pId++, Owner = owner, Row = row, Col = col };
+                    board.Pawns.Add(pawn);
+                    // <-- Debugowanie
+                    Console.WriteLine($"Pawn {pawn.Id} owner: {pawn.Owner}, row: {pawn.Row}, col: {pawn.Col}");
+                }
+            }
         }
 
         return board;
     }
 
-    public async Task<Game> CreateGameAsync(int player1Id)
+public async Task<Game> CreateGameAsync(int player1Id)
+{
+    var board = CreateInitialBoard();
+    var game = new Game
     {
-        var board = CreateInitialBoard();
-        var game = new Game
-        {
-            Player1Id = player1Id,
-            CurrentTurnPlayerId = player1Id,
-            BoardState = JsonSerializer.Serialize(board)
-        };
-        db.Games.Add(game);
-        await db.SaveChangesAsync();
-        return game;
-    }
+        Player1Id = player1Id,
+        CurrentTurnPlayerId = player1Id,
+        BoardState = board 
+    };
+
+    db.Games.Add(game);
+    await db.SaveChangesAsync();
+    return game;
+}
 
     public async Task<Game?> JoinGameAsync(int gameId, int player2Id)
     {
@@ -90,7 +89,7 @@ public class GameService(AppDbContext db)
     if (game.Status != GameStatus.InProgress) return (false, "Gra nie jest aktywna", null);
     if (game.CurrentTurnPlayerId != playerId) return (false, "Nie twoja tura", null);
 
-    var board = JsonSerializer.Deserialize<BoardState>(game.BoardState)!;
+    var board = game.BoardState;
     var owner = playerId == game.Player1Id ? PieceOwner.Player1 : PieceOwner.Player2;
     var enemy = owner == PieceOwner.Player1 ? PieceOwner.Player2 : PieceOwner.Player1;
 
@@ -131,7 +130,11 @@ public class GameService(AppDbContext db)
         ? game.Player2Id!.Value
         : game.Player1Id;
 
-    game.BoardState = JsonSerializer.Serialize(board);
+    // EF Core nie śledzi zmian wewnątrz obiektów z HasConversion automatycznie.
+    // Wymuszamy re-serializację przez przypisanie nowej instancji.
+    var opts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    game.BoardState = JsonSerializer.Deserialize<BoardState>(JsonSerializer.Serialize(board, opts), opts)!;
+    db.Entry(game).Property(g => g.BoardState).IsModified = true;
 
     db.Moves.Add(new Move
     {
@@ -291,20 +294,6 @@ private (bool success, string message, int? bonusEarnedForPawnId) ExecutePawnAct
         if (board.Kings.Any(k => k.IsAlive && k.Row == toRow && k.Col == toCol))
             return false;
 
-        // Sprawdź czy docelowe pole jest zablokowane przez wieżę wroga
-        var enemyTowerBlocks = board.Towers
-            .Where(t => t.Owner == enemy && t.IsAlive)
-            .Any(t => Math.Abs(t.Row - toRow) + Math.Abs(t.Col - toCol) == 1);
-
-        // Wieża gracza też może być blokowana przez wieże wroga
-        // (pole sąsiadujące z wieżą wroga jest zablokowane)
-        if (enemyTowerBlocks)
-        {
-            var blocker = board.Towers.FirstOrDefault(t =>
-                t.Owner == enemy && t.IsAlive &&
-                Math.Abs(t.Row - toRow) + Math.Abs(t.Col - toCol) == 1);
-            if (blocker is not null) return false;
-        }
 
         return true;
     }
@@ -373,15 +362,29 @@ private (bool success, string message, int? bonusEarnedForPawnId) ExecutePawnAct
         }
     }
 
-    public async Task<List<Game>> GetHistoryAsync(int playerId) =>
-        await db.Games
+    public async Task<List<object>> GetHistoryAsync(int playerId) =>
+        (await db.Games
             .Include(g => g.Player1)
             .Include(g => g.Player2)
             .Where(g => g.Player1Id == playerId || g.Player2Id == playerId)
             .OrderByDescending(g => g.CreatedAt)
-            .ToListAsync();
+            .ToListAsync())
+        .Select(g => (object)new
+        {
+            g.Id,
+            g.Player1Id,
+            g.Player2Id,
+            g.WinnerId,
+            g.Status,   // enum jako liczba: 0/1/2
+            g.CreatedAt,
+            player1 = new { g.Player1.Username },
+            player2 = g.Player2 == null ? null : new { g.Player2.Username }
+        })
+        .ToList();
 
     public async Task<Game?> GetGameAsync(int gameId) =>
-        await db.Games.Include(g => g.Moves).FirstOrDefaultAsync(g => g.Id == gameId);
+        await db.Games
+            .Include(g => g.Player1)
+            .Include(g => g.Player2)
+            .FirstOrDefaultAsync(g => g.Id == gameId);
 }
-
