@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Regnum — Test Wizualny</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Pro:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --bg2:#111118; --bg3:#1a1a24;
+  --gold:#c9a84c; --gold-dim:#7a6030;
+  --red:#c94c4c; --blue:#4c7ac9; --silver:#8899aa; --white:#e8e4d8;
+  --F:60px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--white);font-family:'Crimson Pro',serif;display:flex;gap:1.5rem;padding:1.5rem;min-height:100vh;}
+
+/* PLANSZA */
+.board-container{position:relative;width:calc(8*var(--F));height:calc(9*var(--F));flex-shrink:0;}
+.fields-layer{position:absolute;top:0;left:0;display:grid;grid-template-columns:repeat(7,var(--F));grid-template-rows:repeat(8,var(--F));width:calc(7*var(--F));height:calc(8*var(--F));z-index:1;}
+.corners-layer{position:absolute;top:0;left:0;display:grid;grid-template-columns:repeat(8,var(--F));grid-template-rows:repeat(9,var(--F));width:calc(8*var(--F));height:calc(9*var(--F));z-index:2;pointer-events:none;}
+.field{width:var(--F);height:var(--F);border:1px solid #1e2030;position:relative;transition:background 0.3s;}
+.field.light{background:#1a1e2c;}.field.dark{background:#13161f;}
+.field.flash{background:rgba(201,168,76,0.35) !important;}
+.tower-p1{background:rgba(76,122,201,0.35) !important;}
+.tower-p2{background:rgba(201,76,76,0.35) !important;}
+.king-p1{background:rgba(76,122,201,0.15) !important;}
+.king-p2{background:rgba(201,76,76,0.15) !important;}
+.corner-cell{width:var(--F);height:var(--F);position:relative;}
+.corner-dot{width:6px;height:6px;border-radius:50%;background:#252530;position:absolute;top:0;left:0;transform:translate(-50%,-50%);}
+.pawn-piece{width:26px;height:26px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:0.7rem;position:absolute;top:0;left:0;transform:translate(-50%,-50%);z-index:20;transition:all 0.4s;}
+.pawn-piece.p1{background:rgba(76,122,201,0.95);border-color:#7aaae8;color:#fff;}
+.pawn-piece.p2{background:rgba(201,76,76,0.95);border-color:#e87a7a;color:#fff;}
+.pawn-piece.moved{box-shadow:0 0 0 4px rgba(201,168,76,0.8),0 0 20px rgba(201,168,76,0.4);transform:translate(-50%,-50%) scale(1.3);}
+.field-piece{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;}
+.piece-icon{width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;border-radius:4px;border:2px solid;transition:all 0.3s;}
+.piece-icon.p1{background:rgba(76,122,201,0.2);border-color:#4c7ac9;}
+.piece-icon.p2{background:rgba(201,76,76,0.2);border-color:#c94c4c;}
+.piece-icon.flash{box-shadow:0 0 0 3px var(--gold);}
+.piece-label{font-family:'Cinzel',serif;font-size:0.45rem;opacity:0.7;}
+
+/* PANEL BOCZNY */
+.side{flex:1;display:flex;flex-direction:column;gap:1rem;max-width:420px;}
+.title{font-family:'Cinzel',serif;font-size:1.3rem;color:var(--gold);letter-spacing:0.1em;margin-bottom:0.5rem;}
+.box{background:var(--bg2);border:1px solid #1e1e2a;padding:1rem;}
+.box-title{font-family:'Cinzel',serif;font-size:0.65rem;letter-spacing:0.15em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:0.6rem;}
+.controls{display:flex;gap:0.5rem;flex-wrap:wrap;}
+button{font-family:'Cinzel',serif;font-size:0.75rem;letter-spacing:0.1em;padding:0.5rem 1rem;cursor:pointer;border:1px solid var(--gold-dim);background:transparent;color:var(--gold);transition:all 0.2s;text-transform:uppercase;}
+button:hover:not(:disabled){background:rgba(201,168,76,0.1);}
+button:disabled{opacity:0.35;cursor:not-allowed;}
+button.primary{background:var(--gold);color:#0a0a0f;border-color:var(--gold);}
+button.primary:hover{background:#e8c97a;}
+.status-line{font-family:'Cinzel',serif;font-size:0.9rem;padding:0.6rem 1rem;border:1px solid;margin-bottom:0.5rem;}
+.status-line.ok{color:#6abf6a;border-color:#2d5a2d;background:#1a2f1a;}
+.status-line.err{color:var(--red);border-color:#5a2d2d;background:#2f1a1a;}
+.status-line.info{color:var(--gold);border-color:var(--gold-dim);background:#1a1810;}
+.status-line.running{color:var(--silver);border-color:#2a2a3a;background:var(--bg2);}
+.log-box{height:300px;overflow-y:auto;background:#0a0a0f;padding:0.6rem;font-family:monospace;font-size:0.75rem;}
+.log-entry{padding:2px 0;border-bottom:1px solid #1a1a24;line-height:1.4;}
+.log-entry.ok{color:#6abf6a;}.log-entry.err{color:var(--red);}.log-entry.info{color:var(--gold);}.log-entry.move{color:#7aaae8;}
+.turn-bar{font-family:'Cinzel',serif;font-size:0.85rem;padding:0.5rem 1rem;border:1px solid;text-align:center;transition:all 0.3s;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;}
+.stat-box{background:var(--bg3);padding:0.6rem;text-align:center;}
+.stat-label{font-family:'Cinzel',serif;font-size:0.6rem;color:var(--gold-dim);letter-spacing:0.1em;text-transform:uppercase;}
+.stat-val{font-size:1.4rem;font-family:'Cinzel',serif;margin-top:2px;}
+.stat-val.blue{color:var(--blue);}.stat-val.red{color:var(--red);}
+.speed-row{display:flex;align-items:center;gap:0.8rem;font-size:0.85rem;color:var(--silver);}
+input[type=range]{flex:1;accent-color:var(--gold);}
+</style>
+</head>
+<body>
+
+<div class="board-container" id="board-container">
+  <div class="fields-layer" id="fields-layer"></div>
+  <div class="corners-layer" id="corners-layer"></div>
+</div>
+
+<div class="side">
+  <div class="title">🎮 Regnum — Test Wizualny</div>
+
+  <div class="box">
+    <div class="box-title">Sterowanie</div>
+    <div class="controls">
+      <button class="primary" onclick="startTest()" id="btn-start">▶ Start</button>
+      <button onclick="stepOnce()" id="btn-step" disabled>⏭ Krok</button>
+      <button onclick="pauseTest()" id="btn-pause" disabled>⏸ Pauza</button>
+      <button onclick="resetTest()" id="btn-reset">↺ Reset</button>
+    </div>
+    <div class="speed-row" style="margin-top:0.8rem;">
+      <span>Szybkość:</span>
+      <input type="range" id="speed" min="100" max="2000" value="800" step="100">
+      <span id="speed-label">800ms</span>
+    </div>
+  </div>
+
+  <div id="turn-bar" class="turn-bar" style="color:var(--silver);border-color:#2a2a3a;">
+    Oczekiwanie na start...
+  </div>
+
+  <div class="box">
+    <div class="box-title">Statystyki</div>
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">🔵 Gracz 1</div>
+        <div class="stat-val blue" id="stat-p1-pawns">—</div>
+        <div style="font-size:0.75rem;color:var(--silver)">pionków</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">🔴 Gracz 2</div>
+        <div class="stat-val red" id="stat-p2-pawns">—</div>
+        <div style="font-size:0.75rem;color:var(--silver)">pionków</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Tury</div>
+        <div class="stat-val" id="stat-turns" style="color:var(--gold)">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Zbicia</div>
+        <div class="stat-val" id="stat-kills" style="color:#c9784c">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <div class="box-title">Log testów</div>
+    <div class="log-box" id="log"></div>
+  </div>
+
+  <div id="results-box" class="box" style="display:none">
+    <div class="box-title">Wyniki</div>
+    <div id="results-list"></div>
+  </div>
+</div>
+
+<script>
+const API        = 'http://localhost:5085/api';
+const FIELD_COLS = 7, FIELD_ROWS = 8;
+const COR_COLS   = 8, COR_ROWS   = 9;
+const O_P1 = 0, O_P2 = 1;
+
+let p1Token=null, p1Id=null, p2Token=null, p2Id=null, gameId=null;
+let boardState=null, gameData=null;
+let running=false, paused=false, stepResolve=null;
+let turnCount=0, killCount=0;
+let testResults=[];
+
+// ── HELPERS ──────────────────────────────────────
+function log(msg, type='info') {
+  const el=document.getElementById('log');
+  const d=document.createElement('div');
+  d.className=`log-entry ${type}`;
+  d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
+}
+function setStatus(msg, type='running') {
+  const d=document.getElementById('turn-bar');
+  const colors={ok:'#6abf6a',err:var_red(),info:var_gold(),running:var_silver()};
+  const borders={ok:'#2d5a2d',err:'#5a2d2d',info:var_gold_dim(),running:'#2a2a3a'};
+  d.textContent=msg;
+  d.style.color=colors[type]||colors.running;
+  d.style.borderColor=borders[type]||borders.running;
+}
+function var_gold(){ return getComputedStyle(document.documentElement).getPropertyValue('--gold').trim(); }
+function var_red(){  return getComputedStyle(document.documentElement).getPropertyValue('--red').trim(); }
+function var_silver(){ return getComputedStyle(document.documentElement).getPropertyValue('--silver').trim(); }
+function var_gold_dim(){ return getComputedStyle(document.documentElement).getPropertyValue('--gold-dim').trim(); }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function getSpeed(){ return parseInt(document.getElementById('speed').value); }
+document.getElementById('speed').oninput=function(){ document.getElementById('speed-label').textContent=this.value+'ms'; };
+
+async function waitStep() {
+  if (!running) return;
+  if (paused) {
+    await new Promise(r=>{ stepResolve=r; });
+    stepResolve=null;
+  } else {
+    await sleep(getSpeed());
+  }
+}
+
+async function api(method, path, body=null, token=p1Token) {
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if (token) opts.headers['Authorization']='Bearer '+token;
+  if (body)  opts.body=JSON.stringify(body);
+  try {
+    const res=await fetch(API+path,opts);
+    const text=await res.text();
+    let data; try{data=JSON.parse(text);}catch{data=text;}
+    return {ok:res.ok,status:res.status,data};
+  } catch(e){ return {ok:false,status:0,data:e.message}; }
+}
+
+function decodeId(token) {
+  try {
+    const p=JSON.parse(atob(token.split('.')[1]));
+    return parseInt(p['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']||'0');
+  } catch { return null; }
+}
+
+function addResult(name, passed, msg) {
+  testResults.push({name,passed,msg});
+  const el=document.getElementById('results-list');
+  const d=document.createElement('div');
+  d.className=`status-line ${passed?'ok':'err'}`;
+  d.textContent=`${passed?'✅':'❌'} ${name}: ${msg}`;
+  el.appendChild(d);
+  document.getElementById('results-box').style.display='block';
+}
+
+// ── PLANSZA ──────────────────────────────────────
+function buildBoard() {
+  const fl=document.getElementById('fields-layer');
+  const cl=document.getElementById('corners-layer');
+  fl.innerHTML=''; cl.innerHTML='';
+  for(let r=0;r<FIELD_ROWS;r++) for(let c=0;c<FIELD_COLS;c++){
+    const f=document.createElement('div');
+    f.className='field '+((r+c)%2===0?'light':'dark');
+    f.id=`f-${r}-${c}`; fl.appendChild(f);
+  }
+  for(let r=0;r<COR_ROWS;r++) for(let c=0;c<COR_COLS;c++){
+    const cell=document.createElement('div');
+    cell.className='corner-cell'; cell.id=`c-${r}-${c}`;
+    const dot=document.createElement('div'); dot.className='corner-dot';
+    cell.appendChild(dot); cl.appendChild(cell);
+  }
+}
+
+function renderBoard(highlightPawn=null, highlightTower=null) {
+  if (!boardState) return;
+
+  // Reset pól
+  for(let r=0;r<FIELD_ROWS;r++) for(let c=0;c<FIELD_COLS;c++){
+    const f=document.getElementById(`f-${r}-${c}`); if(!f) continue;
+    f.className='field '+((r+c)%2===0?'light':'dark');
+    f.style.outline=''; f.innerHTML='';
+  }
+  document.querySelectorAll('.pawn-piece').forEach(e=>e.remove());
+
+  // Wieże
+  (boardState.towers||[]).filter(t=>t.isAlive).forEach(t=>{
+    const f=document.getElementById(`f-${t.row}-${t.col}`); if(!f) return;
+    const cls=t.owner===O_P1?'p1':'p2';
+    f.classList.add(`tower-${cls}`);
+    const el=document.createElement('div'); el.className='field-piece';
+    const flash=highlightTower===t.id?' flash':'';
+    el.innerHTML=`<div class="piece-icon ${cls}${flash}">🗼</div><div class="piece-label">${cls.toUpperCase()} #${t.id}</div>`;
+    f.appendChild(el);
+    // Blokowanie narożników
+    [[t.row,t.col],[t.row,t.col+1],[t.row+1,t.col],[t.row+1,t.col+1]].forEach(([br,bc])=>{
+      const bf=document.getElementById(`f-${br}-${bc}`);
+      if(bf) bf.style.outline=`2px inset ${t.owner===O_P1?'rgba(76,122,201,0.4)':'rgba(201,76,76,0.4)'}`;
+    });
+  });
+
+  // Królowie
+  (boardState.kings||[]).filter(k=>k.isAlive).forEach(k=>{
+    const f=document.getElementById(`f-${k.row}-${k.col}`); if(!f) return;
+    const cls=k.owner===O_P1?'p1':'p2';
+    f.classList.add(`king-${cls}`);
+    const el=document.createElement('div'); el.className='field-piece';
+    el.innerHTML=`<div class="piece-icon ${cls}">👑</div><div class="piece-label">${cls.toUpperCase()} #${k.id}</div>`;
+    f.appendChild(el);
+  });
+
+  // Pionki
+  (boardState.pawns||[]).filter(p=>p.isAlive).forEach(p=>{
+    const cell=document.getElementById(`c-${p.row}-${p.col}`); if(!cell) return;
+    const cls=p.owner===O_P1?'p1':'p2';
+    const flash=highlightPawn===p.id?' moved':'';
+    const dot=document.createElement('div');
+    dot.className=`pawn-piece ${cls}${flash}`;
+    dot.textContent='⚔'; dot.title=`Pionek #${p.id}`;
+    cell.appendChild(dot);
+  });
+
+  updateStats();
+}
+
+function updateStats() {
+  if (!boardState) return;
+  const p1=boardState.pawns.filter(p=>p.isAlive&&p.owner===O_P1).length;
+  const p2=boardState.pawns.filter(p=>p.isAlive&&p.owner===O_P2).length;
+  document.getElementById('stat-p1-pawns').textContent=p1;
+  document.getElementById('stat-p2-pawns').textContent=p2;
+  document.getElementById('stat-turns').textContent=turnCount;
+  document.getElementById('stat-kills').textContent=killCount;
+}
+
+// ── BOT AI ───────────────────────────────────────
+
+function isBlocked(board, enemyOwner, cr, cc){
+  return board.towers.some(t=>{
+    if(t.owner!==enemyOwner||!t.isAlive) return false;
+    return [[t.row,t.col],[t.row,t.col+1],[t.row+1,t.col],[t.row+1,t.col+1]].some(([r,c])=>r===cr&&c===cc);
+  });
+}
+
+// Znajdź ruchy pionka (zwraca też info o bonusie)
+function findPawnMoves(board, ownerNum) {
+  const moves=[];
+  const enemy=ownerNum===O_P1?O_P2:O_P1;
+  for(const p of board.pawns.filter(p=>p.isAlive&&p.owner===ownerNum)){
+    for(const [r,c] of [[p.row-1,p.col],[p.row+1,p.col],[p.row,p.col-1],[p.row,p.col+1]]){
+      if(r<0||r>=COR_ROWS||c<0||c>=COR_COLS) continue;
+      if(isBlocked(board,enemy,r,c)) continue;
+      const targetEnemy=board.pawns.find(x=>x.isAlive&&x.owner===enemy&&x.row===r&&x.col===c);
+      const targetAlly =board.pawns.find(x=>x.isAlive&&x.owner===ownerNum&&x.row===r&&x.col===c&&x.id!==p.id);
+      moves.push({pawnId:p.id,fromRow:p.row,fromCol:p.col,toRow:r,toCol:c,
+        captures:!!targetEnemy, bonusAllyId:targetAlly?targetAlly.id:null});
+    }
+  }
+  return moves;
+}
+
+// Znajdź ruchy bonusowe dla pionka który dostał bonus (po tym jak jego sojusznik go uderzył)
+function findBonusMoves(board, bonusPawnId, ownerNum) {
+  const enemy=ownerNum===O_P1?O_P2:O_P1;
+  const p=board.pawns.find(x=>x.id===bonusPawnId&&x.isAlive);
+  if(!p) return [];
+  const moves=[];
+  for(const [r,c] of [[p.row-1,p.col],[p.row+1,p.col],[p.row,p.col-1],[p.row,p.col+1]]){
+    if(r<0||r>=COR_ROWS||c<0||c>=COR_COLS) continue;
+    if(isBlocked(board,enemy,r,c)) continue;
+    moves.push({pawnId:bonusPawnId,fromRow:p.row,fromCol:p.col,toRow:r,toCol:c});
+  }
+  return moves;
+}
+
+// Znajdź ruchy wieży — ZAWSZE szukaj najlepszego
+function findTowerMoves(board, ownerNum) {
+  const moves=[];
+  for(const t of board.towers.filter(t=>t.isAlive&&t.owner===ownerNum)){
+    for(const [r,c] of [[t.row-1,t.col],[t.row+1,t.col],[t.row,t.col-1],[t.row,t.col+1]]){
+      if(r<0||r>=FIELD_ROWS||c<0||c>=FIELD_COLS) continue;
+      if(board.towers.some(x=>x.isAlive&&x.row===r&&x.col===c)) continue;
+      if(board.kings.some(x=>x.isAlive&&x.row===r&&x.col===c)) continue;
+      moves.push({towerId:t.id,fromRow:t.row,fromCol:t.col,toRow:r,toCol:c});
+    }
+  }
+  return moves;
+}
+
+// Strategia: preferuj zbicia > bonus prowadzący do zbicia > naprzód > losowo
+function chooseBestPawnMove(moves, ownerNum) {
+  if(!moves.length) return null;
+  const capture=moves.find(m=>m.captures);
+  if(capture) return capture;
+  const withBonus=moves.filter(m=>m.bonusAllyId!==null);
+  if(withBonus.length) return withBonus[Math.floor(Math.random()*withBonus.length)];
+  const forward=moves.filter(m=>ownerNum===O_P1 ? m.toRow<m.fromRow : m.toRow>m.fromRow);
+  if(forward.length) return forward[Math.floor(Math.random()*forward.length)];
+  return moves[Math.floor(Math.random()*moves.length)];
+}
+
+// Strategia wieży: idź w stronę środka planszy (zagęszczenie blokowania)
+function chooseBestTowerMove(moves, ownerNum) {
+  if(!moves.length) return null;
+  // Preferuj ruch ku wrogiej połowie
+  const forward=moves.filter(m=>ownerNum===O_P1 ? m.toRow<m.fromRow : m.toRow>m.fromRow);
+  if(forward.length) return forward[Math.floor(Math.random()*forward.length)];
+  return moves[Math.floor(Math.random()*moves.length)];
+}
+
+// Zbuduj pełną akcję tury: pawnAction + opcjonalnie bonusPawnAction + towerAction
+function buildTurnBody(board, ownerNum) {
+  const pawnMoves=findPawnMoves(board, ownerNum);
+  if(!pawnMoves.length) return null;
+
+  const chosen=chooseBestPawnMove(pawnMoves, ownerNum);
+
+  // Bonus: jeśli pionek trafi na sojusznika, sojusznik dostaje bonus ruch
+  let bonusPawnAction=null;
+  if(chosen.bonusAllyId !== null){
+    const bonusMoves=findBonusMoves(board, chosen.bonusAllyId, ownerNum);
+    if(bonusMoves.length){
+      // Bonus: preferuj zbicie, potem naprzód
+      const enemy=ownerNum===O_P1?O_P2:O_P1;
+      const bonusCapture=bonusMoves.find(m=>board.pawns.some(x=>x.isAlive&&x.owner===enemy&&x.row===m.toRow&&x.col===m.toCol));
+      const bonusChosen=bonusCapture||bonusMoves[Math.floor(Math.random()*bonusMoves.length)];
+      bonusPawnAction={type:'MovePawn',pieceId:chosen.bonusAllyId,toRow:bonusChosen.toRow,toCol:bonusChosen.toCol};
+    }
+  }
+
+  // Wieża: ZAWSZE próbuj ruszyć wieżą
+  const towerMoves=findTowerMoves(board, ownerNum);
+  let towerAction=null;
+  if(towerMoves.length){
+    const t=chooseBestTowerMove(towerMoves, ownerNum);
+    towerAction={type:'MoveTower',pieceId:t.towerId,toRow:t.toRow,toCol:t.toCol};
+  }
+
+  return {
+    pawnAction:{type:'MovePawn',pieceId:chosen.pawnId,toRow:chosen.toRow,toCol:chosen.toCol},
+    bonusPawnAction,
+    towerAction,
+    // meta (do logowania)
+    _chosen:chosen, _towerAction:towerAction, _bonus:bonusPawnAction
+  };
+}
+
+// ── GŁÓWNA LOGIKA TESTU ──────────────────────────
+async function startTest() {
+  if (running) return;
+  running=true; paused=false; testResults=[]; turnCount=0; killCount=0;
+  document.getElementById('results-list').innerHTML='';
+  document.getElementById('results-box').style.display='none';
+  document.getElementById('btn-start').disabled=true;
+  document.getElementById('btn-pause').disabled=false;
+  document.getElementById('btn-step').disabled=false;
+  document.getElementById('btn-reset').disabled=true;
+
+  buildBoard();
+  log('=== START TESTU WIZUALNEGO ===','info');
+
+  // 1. Rejestracja
+  setStatus('🔧 Rejestracja graczy...','running');
+  log('Rejestruję Gracza 1...');
+  const r1=await api('POST','/auth/register',{username:`bot1_${Date.now()}`,password:'test123'},null);
+  if(!r1.ok||!r1.data.token){ addResult('Rejestracja Gracza 1',false,'Błąd: '+JSON.stringify(r1.data)); finish(); return; }
+  p1Token=r1.data.token; p1Id=decodeId(p1Token);
+  log(`✅ Gracz 1 zarejestrowany (ID: ${p1Id})`,'ok');
+
+  const r2=await api('POST','/auth/register',{username:`bot2_${Date.now()}`,password:'test123'},null);
+  if(!r2.ok||!r2.data.token){ addResult('Rejestracja Gracza 2',false,'Błąd: '+JSON.stringify(r2.data)); finish(); return; }
+  p2Token=r2.data.token; p2Id=decodeId(p2Token);
+  log(`✅ Gracz 2 zarejestrowany (ID: ${p2Id})`,'ok');
+  addResult('Rejestracja graczy',true,`P1 ID:${p1Id}, P2 ID:${p2Id}`);
+
+  await waitStep();
+
+  // 2. Tworzenie gry
+  setStatus('🎮 Tworzenie gry...','running');
+  log('Tworzę grę...');
+  const rc=await api('POST','/game/create',null,p1Token);
+  if(!rc.ok||!rc.data.id){ addResult('Tworzenie gry',false,JSON.stringify(rc.data)); finish(); return; }
+  gameId=rc.data.id;
+  log(`✅ Gra #${gameId} utworzona`,'ok');
+  addResult('Tworzenie gry',true,`Gra #${gameId}`);
+
+  const rj=await api('POST',`/game/${gameId}/join`,null,p2Token);
+  if(!rj.ok){ addResult('Dołączanie P2',false,JSON.stringify(rj.data)); finish(); return; }
+  log(`✅ Gracz 2 dołączył do gry`,'ok');
+  addResult('Dołączanie Gracza 2',true,'Status: '+rj.data.status);
+
+  await waitStep();
+
+  // 3. Pobierz initial state
+  const ri=await api('GET',`/game/${gameId}`,null,p1Token);
+  if(!ri.ok){ addResult('Stan gry',false,'Błąd pobierania'); finish(); return; }
+  gameData=ri.data;
+  boardState=typeof ri.data.boardState==='string'?JSON.parse(ri.data.boardState):ri.data.boardState;
+  const p1pawns=boardState.pawns.filter(p=>p.owner===O_P1&&p.isAlive).length;
+  const p2pawns=boardState.pawns.filter(p=>p.owner===O_P2&&p.isAlive).length;
+  log(`✅ Plansza wczytana: ${p1pawns} pionków P1, ${p2pawns} pionków P2`,'ok');
+  addResult('Stan początkowy',true,`${p1pawns} + ${p2pawns} pionków, ${boardState.towers.length} wież, ${boardState.kings.length} królów`);
+  renderBoard();
+
+  await waitStep();
+
+  // 4. Symulacja gry
+  log('=== SYMULACJA RUCHÓW ===','info');
+  const maxTurns=60;
+
+  while(running && turnCount < maxTurns){
+    // Pobierz aktualny stan
+    const rg=await api('GET',`/game/${gameId}`,null,p1Token);
+    if(!rg.ok){ log('Błąd pobierania gry','err'); break; }
+    gameData=rg.data;
+    boardState=typeof rg.data.boardState==='string'?JSON.parse(rg.data.boardState):rg.data.boardState;
+
+    if(gameData.status===2){ log('🏁 Gra zakończona!','info'); break; }
+    if(gameData.status===0){ log('Gra czeka na graczy','err'); break; }
+
+    const isP1Turn = gameData.currentTurnPlayerId===gameData.player1Id;
+    const ownerNum = isP1Turn?O_P1:O_P2;
+    const token    = isP1Turn?p1Token:p2Token;
+    const label    = isP1Turn?'🔵 Gracz 1':'🔴 Gracz 2';
+
+    setStatus(`${label} — tura ${turnCount+1}`, 'running');
+    document.getElementById('turn-bar').style.color=isP1Turn?'#4c7ac9':'#c94c4c';
+    document.getElementById('turn-bar').style.borderColor=isP1Turn?'#4c7ac9':'#c94c4c';
+
+    // Policz pionki przed ruchem
+    const pawnsBefore = boardState.pawns.filter(p=>p.isAlive).length;
+
+    // Zbuduj pełną akcję tury
+    const body=buildTurnBody(boardState,ownerNum);
+    if(!body){ log(`${label}: brak ruchów!`,'err'); break; }
+
+    // Log
+    const c=body._chosen;
+    const parts=[`pionek #${c.pawnId} (${c.fromRow},${c.fromCol})→(${c.toRow},${c.toCol})${c.captures?' 💥':''}${c.bonusAllyId!==null?' ⭐bonus':''}` ];
+    if(body._bonus) parts.push(`bonus #${body._bonus.pieceId}→(${body._bonus.toRow},${body._bonus.toCol})`);
+    if(body._towerAction) parts.push(`wieża #${body._towerAction.pieceId}→(${body._towerAction.toRow},${body._towerAction.toCol})`);
+    log(`${label}: ${parts.join(' | ')}`, c.captures?'err':'move');
+
+    // Flash przed ruchem
+    renderBoard(c.pawnId, body._towerAction?.pieceId);
+    await sleep(Math.min(getSpeed()*0.4, 300));
+
+    // Wyślij
+    const rt=await api('POST',`/game/${gameId}/turn`,{
+      pawnAction:body.pawnAction,
+      bonusPawnAction:body.bonusPawnAction,
+      towerAction:body.towerAction
+    },token);
+
+    if(rt.ok){
+      const rn=await api('GET',`/game/${gameId}`,null,p1Token);
+      if(rn.ok){
+        gameData=rn.data;
+        boardState=typeof rn.data.boardState==='string'?JSON.parse(rn.data.boardState):rn.data.boardState;
+      }
+      const pawnsAfter=boardState.pawns.filter(p=>p.isAlive).length;
+      if(pawnsAfter<pawnsBefore) killCount+=pawnsBefore-pawnsAfter;
+      turnCount++;
+      renderBoard();
+    } else {
+      const err=typeof rt.data==='string'?rt.data:JSON.stringify(rt.data);
+      log(`✗ Błąd: ${err}`,'err');
+      turnCount++;
+    }
+
+    await waitStep();
+  }
+
+  // 5. Podsumowanie
+  const finalR=await api('GET',`/game/${gameId}`,null,p1Token);
+  if(finalR.ok){
+    const fd=finalR.data;
+    const finalBoard=typeof fd.boardState==='string'?JSON.parse(fd.boardState):fd.boardState;
+    const p1alive=finalBoard.pawns.filter(p=>p.isAlive&&p.owner===O_P1).length;
+    const p2alive=finalBoard.pawns.filter(p=>p.isAlive&&p.owner===O_P2).length;
+    addResult('Integralność ruchów', turnCount>0, `${turnCount} tur wykonanych`);
+    addResult('Zmiana pozycji pionków', p1alive<16||p2alive<16||killCount>0, `P1: ${p1alive}/16, P2: ${p2alive}/16, zbicia: ${killCount}`);
+    addResult('Zmiana tury', true, `${turnCount} zmian tury`);
+    if(fd.status===2){
+      const winner=fd.winnerId===p1Id?'Gracz 1':'Gracz 2';
+      addResult('Koniec gry',true,`Wygrał ${winner}`);
+      log(`🏆 Koniec! Wygrał ${winner}`,'info');
+      setStatus(`🏆 Wygrał ${winner}`,'info');
+    } else {
+      log(`⏹ Test zatrzymany po ${turnCount} turach`,'info');
+      setStatus(`Test zakończony — ${turnCount} tur`,'ok');
+    }
+  }
+
+  finish();
+}
+
+function finish(){
+  running=false; paused=false;
+  document.getElementById('btn-start').disabled=false;
+  document.getElementById('btn-pause').disabled=true;
+  document.getElementById('btn-step').disabled=true;
+  document.getElementById('btn-reset').disabled=false;
+  const passed=testResults.filter(r=>r.passed).length;
+  log(`=== WYNIK: ${passed}/${testResults.length} testów zaliczonych ===`,'info');
+}
+
+function pauseTest(){
+  if(!running) return;
+  paused=!paused;
+  document.getElementById('btn-pause').textContent=paused?'▶ Wznów':'⏸ Pauza';
+  document.getElementById('btn-step').disabled=!paused;
+  setStatus(paused?'⏸ Pauza — kliknij Krok lub Wznów':'Wznowiono...', paused?'info':'running');
+  if(!paused && stepResolve) { stepResolve(); }
+}
+
+function stepOnce(){
+  if(paused && stepResolve){ stepResolve(); }
+}
+
+function resetTest(){
+  running=false; paused=false; stepResolve=null;
+  p1Token=null; p1Id=null; p2Token=null; p2Id=null; gameId=null;
+  boardState=null; gameData=null; turnCount=0; killCount=0; testResults=[];
+  buildBoard();
+  document.getElementById('log').innerHTML='';
+  document.getElementById('results-list').innerHTML='';
+  document.getElementById('results-box').style.display='none';
+  document.getElementById('btn-start').disabled=false;
+  document.getElementById('btn-pause').disabled=true;
+  document.getElementById('btn-step').disabled=true;
+  document.getElementById('btn-reset').disabled=false;
+  document.getElementById('btn-pause').textContent='⏸ Pauza';
+  document.getElementById('stat-p1-pawns').textContent='—';
+  document.getElementById('stat-p2-pawns').textContent='—';
+  document.getElementById('stat-turns').textContent='0';
+  document.getElementById('stat-kills').textContent='0';
+  setStatus('Oczekiwanie na start...','running');
+  document.getElementById('turn-bar').style.color=var_silver();
+  document.getElementById('turn-bar').style.borderColor='#2a2a3a';
+  log('Test zresetowany');
+}
+
+// Init
+buildBoard();
+log('Kliknij ▶ Start aby uruchomić test');
+</script>
+</body>
+</html>

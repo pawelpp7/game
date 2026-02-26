@@ -69,47 +69,21 @@ input:focus { border-color:var(--gold-dim); }
 .status-bar { font-family:'Cinzel',serif; font-size:0.9rem; letter-spacing:0.1em; padding:0.5rem 1.2rem; border:1px solid var(--gold-dim); color:var(--gold); }
 .game-layout { display:flex; gap:2rem; align-items:flex-start; width:100%; max-width:1200px; }
 
-/* ══════════════════════════════════════════════
-   PLANSZA
-   
-   Plansza 7×8 pól. Każde pole ma rozmiar F×F.
-   Narożniki są na ROGACH pól — siatka 8×9 punktów.
-   
-   Narożnik (row, col) znajduje się w punkcie (col*F, row*F)
-   licząc od lewego-górnego rogu planszy.
-   
-   Pole (row, col) zajmuje obszar od (col*F, row*F) do ((col+1)*F, (row+1)*F).
-   
-   OBE warstwy zaczynają się od (0,0).
-   Warstwa pól ma 7 kolumn × 8 wierszy = kończy się na (7F, 8F).
-   Warstwa narożników ma 8 kolumn × 9 wierszy = kończy się na (8F, 9F).
-   
-   Narożnik (0,0) siedzi na rogu pola (0,0) — lewy-górny.
-   Narożnik (0,7) siedzi na rogu pola (0,6) — prawy-górny.
-   ══════════════════════════════════════════════ */
-
 .board-wrap { position:relative; flex-shrink:0; }
-
 .board-container {
   position: relative;
-  /* Szerokość: 8 narożników = 8*F, Wysokość: 9 narożników = 9*F */
   width: calc(8 * var(--F));
   height: calc(9 * var(--F));
 }
-
-/* Warstwa pól — pozycja absolutna od (0,0) */
-/* Pola zajmują przestrzeń od (0,0) do (7F, 8F) */
-/* Narożniki będą na rogach pól automatycznie */
 .fields-layer {
-  position: absolute;
-  top: 0; left: 0;
+  position: absolute; top: 0; left: 0;
   display: grid;
   grid-template-columns: repeat(7, var(--F));
   grid-template-rows: repeat(8, var(--F));
   width: calc(7 * var(--F));
   height: calc(8 * var(--F));
+  z-index: 1;
 }
-
 .field {
   width: var(--F); height: var(--F);
   border: 1px solid #1e2030;
@@ -123,29 +97,25 @@ input:focus { border-color:var(--gold-dim); }
 .field.king-p2  { background:rgba(201,76,76,0.15) !important; }
 .field.highlight { background:rgba(201,168,76,0.2) !important; box-shadow:inset 0 0 0 2px rgba(201,168,76,0.5); cursor:pointer; }
 
-/* Warstwa narożników — pozycja absolutna od (0,0) */
-/* Każda komórka ma rozmiar F×F */
-/* Narożnik (r,c) = komórka w wierszu r, kolumnie c */
-/* Lewy-górny róg komórki (r,c) = (c*F, r*F) */
-/* Pionek stoi na lewym-górnym rogu komórki czyli na przecięciu pól */
 .corners-layer {
-  position: absolute;
-  top: 0; left: 0;
+  position: absolute; top: 0; left: 0;
   display: grid;
   grid-template-columns: repeat(8, var(--F));
   grid-template-rows: repeat(9, var(--F));
   width: calc(8 * var(--F));
   height: calc(9 * var(--F));
   pointer-events: none;
+  z-index: 2;
 }
-
 .corner-cell {
   width: var(--F); height: var(--F);
   position: relative;
-  pointer-events: auto;
+  pointer-events: none; /* nie blokuj kliknięć na pola pod spodem */
 }
-
-/* Kropka narożnika — w lewym-górnym rogu komórki (czyli na przecięciu pól) */
+.corner-cell.highlight {
+  pointer-events: auto; /* tylko podświetlone narożniki są klikalne */
+  cursor: pointer;
+}
 .corner-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -156,8 +126,6 @@ input:focus { border-color:var(--gold-dim); }
   pointer-events: none;
   z-index: 5;
 }
-
-/* Pionek — w lewym-górnym rogu komórki */
 .pawn-piece {
   width: 30px; height: 30px;
   border-radius: 50%;
@@ -171,17 +139,15 @@ input:focus { border-color:var(--gold-dim); }
   transition: all 0.15s;
   z-index: 20;
   user-select: none;
+  pointer-events: auto;
 }
 .pawn-piece.p1 { background:rgba(76,122,201,0.95); border-color:#7aaae8; color:#fff; }
 .pawn-piece.p2 { background:rgba(201,76,76,0.95); border-color:#e87a7a; color:#fff; }
 .pawn-piece.selected { box-shadow:0 0 0 3px var(--gold), 0 0 15px rgba(201,168,76,0.6); transform:translate(-50%,-50%) scale(1.2); }
 .pawn-piece:hover:not(.selected) { transform:translate(-50%,-50%) scale(1.1); }
 
-/* Podświetlenie narożnika */
 .corner-cell.highlight .corner-dot { width:18px; height:18px; background:rgba(201,168,76,0.55); border:2px solid var(--gold); cursor:pointer; }
-.corner-cell.highlight { cursor:pointer; }
 
-/* Figury na polach */
 .field-piece { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; z-index:10; user-select:none; transition:all 0.15s; }
 .field-piece:hover { transform:translate(-50%,-50%) scale(1.05); }
 .piece-icon { width:46px; height:46px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; border-radius:4px; border:2px solid; transition:all 0.15s; }
@@ -190,7 +156,6 @@ input:focus { border-color:var(--gold-dim); }
 .piece-icon.sel { box-shadow:0 0 0 3px var(--gold); }
 .piece-label { font-family:'Cinzel',serif; font-size:0.5rem; letter-spacing:0.05em; opacity:0.7; }
 
-/* SIDE PANEL */
 .side-panel { flex:1; display:flex; flex-direction:column; gap:1rem; min-width:220px; max-width:280px; }
 .info-box { background:var(--bg2); border:1px solid #1e1e2a; padding:1.2rem; }
 .info-box-title { font-family:'Cinzel',serif; font-size:0.7rem; letter-spacing:0.15em; color:var(--gold-dim); text-transform:uppercase; margin-bottom:0.8rem; }
@@ -213,10 +178,11 @@ input:focus { border-color:var(--gold-dim); }
 .legend { display:flex; flex-direction:column; gap:0.4rem; }
 .legend-item { display:flex; align-items:center; gap:0.6rem; font-size:0.82rem; color:var(--silver); }
 
-/* GAME OVER */
 .game-over-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); display:none; align-items:center; justify-content:center; z-index:100; flex-direction:column; gap:1.5rem; }
 .game-over-overlay.show { display:flex; }
 .game-over-title { font-family:'Cinzel',serif; font-size:3rem; color:var(--gold); text-shadow:0 0 40px rgba(201,168,76,0.6); letter-spacing:0.2em; }
+.move-btn { font-size:0.75rem; color:var(--gold); padding:3px 6px; margin:2px 0; cursor:pointer; border:1px solid transparent; border-radius:3px; transition:all 0.15s; }
+.move-btn:hover { background:rgba(201,168,76,0.1); border-color:var(--gold-dim); }
 </style>
 </head>
 <body>
@@ -308,9 +274,17 @@ input:focus { border-color:var(--gold-dim); }
         <div class="dead-pawns" id="dead-pawns-list"></div>
       </div>
       <div class="info-box">
+        <div class="info-box-title">Dostępne ruchy (kliknij aby wykonać)</div>
+        <div style="font-size:0.75rem;line-height:1.5;max-height:200px;overflow-y:auto" id="possible-moves"><span style="color:var(--silver)">Ładowanie...</span></div>
+      </div>
+      <div class="info-box">
         <div class="info-box-title">Zaplanowana tura</div>
+        <div style="font-size:0.75rem;color:var(--silver);line-height:1.4;white-space:pre-line" id="turn-status">Planuj ruchy...</div>
         <div style="font-size:0.85rem;color:var(--silver);line-height:1.8;white-space:pre-line" id="planned-display">Brak zaplanowanych akcji</div>
-        <button class="confirm-btn" id="confirm-turn-btn" onclick="confirmTurn()" disabled>Zatwierdź turę</button>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+          <button class="btn btn-outline btn-sm" onclick="resetTurnPlan()" style="flex:1">Wyczyść</button>
+          <button class="confirm-btn" id="confirm-turn-btn" onclick="confirmTurn()" disabled style="flex:2">Zatwierdź turę</button>
+        </div>
       </div>
       <div class="info-box">
         <div class="info-box-title">Log akcji</div>
@@ -322,8 +296,19 @@ input:focus { border-color:var(--gold-dim); }
           <div class="legend-item"><span>⚔</span> Pionek (narożnik)</div>
           <div class="legend-item"><span>🗼</span> Wieża (pole)</div>
           <div class="legend-item"><span>👑</span> Król (pole)</div>
+          <div class="legend-item" id="my-player-info"><span style="color:var(--gold)">●</span> <span id="my-player-text">Ładowanie...</span></div>
           <div class="legend-item"><span style="color:var(--blue)">●</span> Gracz 1 (niebieski)</div>
           <div class="legend-item"><span style="color:var(--red)">●</span> Gracz 2 (czerwony)</div>
+        </div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-title">Sterowanie klawiaturą</div>
+        <div style="font-size:0.75rem;color:var(--silver);line-height:1.6">
+          <div><strong>Strzałki:</strong> ruch figurą</div>
+          <div><strong>Tab:</strong> następna figura</div>
+          <div><strong>Spacja:</strong> zatwierdź turę</div>
+          <div><strong>Esc:</strong> odznacz figurę</div>
+          <div><strong>1-4:</strong> tryby gry</div>
         </div>
       </div>
     </div>
@@ -340,9 +325,13 @@ input:focus { border-color:var(--gold-dim); }
 const API        = 'http://localhost:5085/api';
 const FIELD_COLS = 7;
 const FIELD_ROWS = 8;
-const COR_COLS   = 8;  // FIELD_COLS + 1
-const COR_ROWS   = 9;  // FIELD_ROWS + 1
-const F          = 72; // px
+const COR_COLS   = 8;
+const COR_ROWS   = 9;
+const F          = 72;
+
+// owner jest LICZBĄ: 0 = Player1 (niebieski), 1 = Player2 (czerwony)
+const O_P1 = 0;
+const O_P2 = 1;
 
 let token        = localStorage.getItem('token') || '';
 let myUserId     = parseInt(localStorage.getItem('userId') || '0');
@@ -350,11 +339,12 @@ let myUsername   = localStorage.getItem('username') || '';
 let currentGameId   = null;
 let currentGameData = null;
 let pollInterval    = null;
-let boardState      = null;
+let boardState      = null; // zawsze OBIEKT (nie string)
 let planned = { pawnAction:null, bonusPawnAction:null, towerAction:null, bonusPawnId:null };
 let selectedPiece    = null;
 let selectedDeadPawn = null;
 let currentMode      = 'pawn';
+let userInteracting  = false;
 
 // ── API ──
 async function api(method, path, body) {
@@ -414,6 +404,7 @@ async function loadLobby() {
   const hist = await api('GET','/game/history');
   if (!hist.ok) return;
   renderHistory(hist.data);
+  // status: 0=Waiting, 1=InProgress, 2=Finished (liczby z enum)
   const waiting = (hist.data||[]).filter(g=>g.status===0&&!g.player2Id);
   document.getElementById('open-games').innerHTML = waiting.length===0
     ? '<div style="color:var(--silver);font-size:0.9rem">Brak otwartych gier</div>'
@@ -440,7 +431,7 @@ async function createGame() {
 }
 async function joinGame() {
   const id = document.getElementById('join-id').value.trim(); if (!id) return;
-  const r = await api('POST',`/game/${id}/join`);
+  const r = await api('POST', `/game/${id}/join`);
   const msg = document.getElementById('lobby-msg');
   if (r.ok) enterGame(id); else { msg.textContent='Nie można dołączyć'; msg.className='msg error'; }
 }
@@ -450,21 +441,42 @@ async function enterGame(id) {
   showScreen('game-screen'); resetTurnPlan(); buildBoard();
   await refreshGame();
   clearInterval(pollInterval);
-  pollInterval = setInterval(refreshGame,3000);
-}
-async function refreshGame() {
-  const r = await api('GET',`/game/${currentGameId}`);
-  if (!r.ok) return;
-  currentGameData=r.data;
-  boardState=JSON.parse(r.data.boardState);
-  renderBoard(); updateTurnBar();
-  if (r.data.status===2) { clearInterval(pollInterval); showGameOver(r.data.winnerId); }
+  pollInterval = setInterval(refreshGame, 3000);
 }
 
-// Kto ma teraz turę: 0=P1, 1=P2
+async function refreshGame() {
+  if (userInteracting) return;
+  const r = await api('GET', `/game/${currentGameId}`);
+  if (!r.ok) return;
+  currentGameData = r.data;
+
+  // boardState z API to STRING JSON — parsuj zawsze
+  const raw = r.data.boardState;
+  if (typeof raw === 'string') {
+    boardState = JSON.parse(raw);
+  } else {
+    boardState = raw; // już obiekt (na wszelki wypadek)
+  }
+
+  renderBoard();
+  updateTurnBar();
+  updateMyPlayerInfo();
+  updatePossibleMoves();
+
+  // status jako liczba: 2=Finished
+  if (r.data.status === 2) { clearInterval(pollInterval); showGameOver(r.data.winnerId); }
+}
+
+// Zwraca numer właściciela aktualnej tury: 0 (P1) lub 1 (P2)
 function currentOwner() {
-  if (!currentGameData) return 0;
-  return currentGameData.currentTurnPlayerId===currentGameData.player1Id ? 0 : 1;
+  if (!currentGameData) return O_P1;
+  return currentGameData.currentTurnPlayerId === currentGameData.player1Id ? O_P1 : O_P2;
+}
+
+// Numer właściciela aktualnego użytkownika
+function myOwner() {
+  if (!currentGameData) return O_P1;
+  return myUserId === currentGameData.player1Id ? O_P1 : O_P2;
 }
 
 // ── BOARD ──
@@ -477,7 +489,7 @@ function buildBoard() {
     const f=document.createElement('div');
     f.className='field '+((r+c)%2===0?'light':'dark');
     f.id=`field-${r}-${c}`;
-    f.addEventListener('click',()=>onFieldClick(r,c));
+    // Nie dodajemy listenera tutaj - obsługa przez board-container
     fl.appendChild(f);
   }
 
@@ -489,6 +501,49 @@ function buildBoard() {
     cell.addEventListener('click',()=>onCornerClick(r,c));
     cl.appendChild(cell);
   }
+
+  // Jeden handler na board-container — rozdziela kliknięcia na pola vs narożniki
+  const bc = document.getElementById('board-container');
+  bc.addEventListener('click', function(e) {
+    const rect = bc.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Czy kliknięto na pionka lub figurę pola? — już obsłużone przez ich własne handlery
+    if (e.target.classList.contains('pawn-piece')) return;
+    if (e.target.closest('.field-piece')) return;
+
+    // Czy kliknięto blisko narożnika? (w promieniu 20px od rogu siatki)
+    // Narożnik (r,c) jest w punkcie (c*F, r*F)
+    const nearCornerCol = Math.round(x / F);
+    const nearCornerRow = Math.round(y / F);
+    const dx = Math.abs(x - nearCornerCol * F);
+    const dy = Math.abs(y - nearCornerRow * F);
+
+    if (dx < 20 && dy < 20 &&
+        nearCornerRow >= 0 && nearCornerRow < COR_ROWS &&
+        nearCornerCol >= 0 && nearCornerCol < COR_COLS) {
+      // Kliknięcie w narożnik
+      const cell = document.getElementById(`corner-${nearCornerRow}-${nearCornerCol}`);
+      if (cell && cell.classList.contains('highlight')) {
+        onCornerClick(nearCornerRow, nearCornerCol);
+        return;
+      }
+      // Nie podświetlony narożnik — sprawdź czy jest tu pionek do kliknięcia
+      const pawnHere = (boardState?.pawns||[]).find(p=>p.isAlive&&p.row===nearCornerRow&&p.col===nearCornerCol);
+      if (pawnHere) { onPawnClick(pawnHere.id, pawnHere.row, pawnHere.col, pawnHere.owner); return; }
+    }
+
+    // Kliknięcie w pole (środek komórki, dalej od narożnika)
+    const fieldCol = Math.floor(x / F);
+    const fieldRow = Math.floor(y / F);
+    if (fieldRow >= 0 && fieldRow < FIELD_ROWS && fieldCol >= 0 && fieldCol < FIELD_COLS) {
+      // Sprawdź czy tu jest wieża/król do kliknięcia
+      const towerHere = (boardState?.towers||[]).find(t=>t.isAlive&&t.row===fieldRow&&t.col===fieldCol);
+      if (towerHere) { onFieldPieceClick('tower', towerHere.id, towerHere.row, towerHere.col, towerHere.owner); return; }
+      onFieldClick(fieldRow, fieldCol);
+    }
+  });
 }
 
 function renderBoard() {
@@ -503,39 +558,41 @@ function renderBoard() {
     f.style.outline='';
     f.querySelectorAll('.field-piece').forEach(e=>e.remove());
   }
+  // Usuń stare pionki
   document.querySelectorAll('.pawn-piece').forEach(e=>e.remove());
 
-  // Wieże
+  // Wieże — owner to liczba 0 lub 1
   (boardState.towers||[]).filter(t=>t.isAlive).forEach(t=>{
     const f=document.getElementById(`field-${t.row}-${t.col}`); if (!f) return;
-    const cls=t.owner===0?'p1':'p2';
+    const cls = t.owner === O_P1 ? 'p1' : 'p2';
     f.classList.add(`tower-${cls}`);
-    const isSel=selectedPiece?.type==='tower'&&selectedPiece.id===t.id;
+    const isSel = selectedPiece?.type==='tower' && selectedPiece.id===t.id;
     const el=document.createElement('div'); el.className='field-piece';
     el.innerHTML=`<div class="piece-icon ${cls}${isSel?' sel':''}">🗼</div><div class="piece-label">${cls.toUpperCase()}</div>`;
     el.addEventListener('click',e=>{e.stopPropagation();onFieldPieceClick('tower',t.id,t.row,t.col,t.owner);});
     f.appendChild(el);
-    [[t.row-1,t.col],[t.row+1,t.col],[t.row,t.col-1],[t.row,t.col+1]].forEach(([br,bc])=>{
+    // Podświetl sąsiednie pola wieży
+    [[t.row,t.col],[t.row,t.col+1],[t.row+1,t.col],[t.row+1,t.col+1]].forEach(([br,bc])=>{
       const bf=document.getElementById(`field-${br}-${bc}`);
-      if (bf) bf.style.outline=`2px inset ${t.owner===0?'rgba(76,122,201,0.5)':'rgba(201,76,76,0.5)'}`;
+      if (bf) bf.style.outline=`2px inset ${t.owner===O_P1?'rgba(76,122,201,0.4)':'rgba(201,76,76,0.4)'}`;
     });
   });
 
-  // Królowie
+  // Królowie — owner to liczba 0 lub 1
   (boardState.kings||[]).filter(k=>k.isAlive).forEach(k=>{
     const f=document.getElementById(`field-${k.row}-${k.col}`); if (!f) return;
-    const cls=k.owner===0?'p1':'p2';
+    const cls = k.owner === O_P1 ? 'p1' : 'p2';
     f.classList.add(`king-${cls}`);
     const el=document.createElement('div'); el.className='field-piece';
     el.innerHTML=`<div class="piece-icon ${cls}">👑</div><div class="piece-label">${cls.toUpperCase()}</div>`;
     f.appendChild(el);
   });
 
-  // Pionki na narożnikach
+  // Pionki na narożnikach — owner to liczba 0 lub 1
   (boardState.pawns||[]).filter(p=>p.isAlive).forEach(p=>{
     const cell=document.getElementById(`corner-${p.row}-${p.col}`); if (!cell) return;
-    const cls=p.owner===0?'p1':'p2';
-    const isSel=selectedPiece?.type==='pawn'&&selectedPiece.id===p.id;
+    const cls = p.owner === O_P1 ? 'p1' : 'p2';
+    const isSel = selectedPiece?.type==='pawn' && selectedPiece.id===p.id;
     const dot=document.createElement('div');
     dot.className=`pawn-piece ${cls}${isSel?' selected':''}`;
     dot.textContent='⚔';
@@ -549,11 +606,16 @@ function renderBoard() {
 
 function renderDeadPawns() {
   const list=document.getElementById('dead-pawns-list');
-  const owner=currentOwner();
-  const dead=(boardState?.pawns||[]).filter(p=>p.isDead&&p.owner===owner);
+  if (!boardState || !currentGameData) return;
+  const me = myOwner();
+  const dead=(boardState.pawns||[]).filter(p=>p.isDead && p.owner===me);
   list.innerHTML=dead.length===0
     ? '<span style="color:var(--silver);font-size:0.85rem">Brak</span>'
-    : dead.map(p=>{const cls=p.owner===0?'p1':'p2'; const sel=selectedDeadPawn===p.id?' selected':''; return `<div class="dead-pawn-dot ${cls}${sel}" onclick="selectDeadPawn(${p.id})">⚔</div>`;}).join('');
+    : dead.map(p=>{
+        const cls = p.owner===O_P1 ? 'p1' : 'p2';
+        const sel = selectedDeadPawn===p.id ? ' selected' : '';
+        return `<div class="dead-pawn-dot ${cls}${sel}" onclick="selectDeadPawn(${p.id})">⚔</div>`;
+      }).join('');
 }
 
 // ── INTERAKCJA ──
@@ -566,78 +628,110 @@ function setMode(mode) {
 }
 function selectDeadPawn(id) { selectedDeadPawn=id; renderDeadPawns(); }
 
-function onPawnClick(id,row,col,owner) {
-  const co=currentOwner();
-  if (currentMode==='pawn'&&owner===co) {
-    selectedPiece={type:'pawn',id,row,col}; clearHighlights(); highlightPawnMoves(row,col); renderBoard();
-  } else if (currentMode==='bonus'&&owner===co&&planned.bonusPawnId===id) {
-    selectedPiece={type:'pawn',id,row,col}; clearHighlights(); highlightPawnMoves(row,col); renderBoard();
+function onPawnClick(id, row, col, owner) {
+  // owner jest liczbą — porównaj z myOwner()
+  if ((currentMode==='pawn'||currentMode==='bonus') && owner===myOwner()) {
+    selectedPiece = { type:'pawn', id, row, col };
+    clearHighlights();
+    highlightPawnMoves(row, col);
+    renderBoard();
   }
+  userInteracting=true; setTimeout(()=>userInteracting=false, 1000);
 }
-function onFieldPieceClick(type,id,row,col,owner) {
-  if (currentMode==='tower'&&type==='tower'&&owner===currentOwner()) {
-    selectedPiece={type:'tower',id,row,col}; clearHighlights(); highlightTowerMoves(row,col); renderBoard();
+
+function onFieldPieceClick(type, id, row, col, owner) {
+  if (currentMode==='tower' && type==='tower' && owner===myOwner()) {
+    selectedPiece = { type:'tower', id, row, col };
+    clearHighlights();
+    highlightTowerMoves(row, col);
+    renderBoard();
   }
+  userInteracting=true; setTimeout(()=>userInteracting=false, 1000);
 }
-function onCornerClick(row,col) {
+
+function onCornerClick(row, col) {
   if (!selectedPiece) return;
-  if ((currentMode==='pawn'||currentMode==='bonus')&&selectedPiece.type==='pawn') {
-    if (!isValidCornerMove(selectedPiece.row,selectedPiece.col,row,col)) return;
-    const action={pieceId:selectedPiece.id,toRow:row,toCol:col,type:'MovePawn'};
-    const ally=(boardState.pawns||[]).find(p=>p.row===row&&p.col===col&&p.isAlive&&p.owner===currentOwner()&&p.id!==selectedPiece.id);
+  if ((currentMode==='pawn'||currentMode==='bonus') && selectedPiece.type==='pawn') {
+    if (!isValidCornerMove(selectedPiece.row, selectedPiece.col, row, col)) return;
+    const action = { pieceId:selectedPiece.id, toRow:row, toCol:col, type:'MovePawn' };
+    const ally = (boardState.pawns||[]).find(p=>
+      p.row===row && p.col===col && p.isAlive && p.owner===myOwner() && p.id!==selectedPiece.id);
     if (currentMode==='pawn') {
-      planned.pawnAction=action;
+      planned.pawnAction = action;
       if (ally) { planned.bonusPawnId=ally.id; document.getElementById('mode-bonus').disabled=false; addLog(`⭐ Bonus dla #${ally.id}`); }
       else { planned.bonusPawnId=null; document.getElementById('mode-bonus').disabled=true; planned.bonusPawnAction=null; }
       addLog(`⚔ Pionek → (${row},${col})`);
     } else {
-      planned.bonusPawnAction=action; addLog(`⭐ Bonus #${selectedPiece.id} → (${row},${col})`);
+      planned.bonusPawnAction = action;
+      addLog(`⭐ Bonus #${selectedPiece.id} → (${row},${col})`);
     }
     selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
-  }
-}
-function onFieldClick(row,col) {
-  if (!selectedPiece) return;
-  if (currentMode==='tower'&&selectedPiece.type==='tower') {
-    if (!isValidTowerMove(selectedPiece.row,selectedPiece.col,row,col)) return;
-    planned.towerAction={type:'MoveTower',pieceId:selectedPiece.id,toRow:row,toCol:col};
-    addLog(`🗼 Wieża → (${row},${col})`); selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
-  } else if (currentMode==='resurrect'&&selectedDeadPawn!==null) {
-    planned.towerAction={type:'Resurrect',pieceId:selectedDeadPawn,toRow:row,toCol:col};
-    addLog(`✨ Wskrzeszenie #${selectedDeadPawn}`); selectedDeadPawn=null; renderBoard(); updateConfirmBtn();
+    userInteracting=true; setTimeout(()=>userInteracting=false, 2000);
   }
 }
 
-function highlightPawnMoves(row,col) {
+function onFieldClick(row, col) {
+  if (!selectedPiece) return;
+  if (currentMode==='tower' && selectedPiece.type==='tower') {
+    if (!isValidTowerMove(selectedPiece.row, selectedPiece.col, row, col)) return;
+    // NAPRAWIONO: używamy `col` nie `t.col` (literówka z oryginału)
+    const taken = (boardState.towers||[]).some(t=>t.isAlive && t.row===row && t.col===col)
+               || (boardState.kings||[]).some(k=>k.isAlive && k.row===row && k.col===col);
+    if (taken) return;
+    planned.towerAction = { type:'MoveTower', pieceId:selectedPiece.id, toRow:row, toCol:col };
+    addLog(`🗼 Wieża → (${row},${col})`);
+    selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
+    userInteracting=true; setTimeout(()=>userInteracting=false, 2000);
+  } else if (currentMode==='resurrect' && selectedDeadPawn!==null) {
+    planned.towerAction = { type:'Resurrect', pieceId:selectedDeadPawn, toRow:row, toCol:col };
+    addLog(`✨ Wskrzeszenie #${selectedDeadPawn}`);
+    selectedDeadPawn=null; renderBoard(); updateConfirmBtn();
+    userInteracting=true; setTimeout(()=>userInteracting=false, 2000);
+  }
+}
+
+function highlightPawnMoves(row, col) {
   [[row-1,col],[row+1,col],[row,col-1],[row,col+1]].forEach(([r,c])=>{
     if (r<0||r>=COR_ROWS||c<0||c>=COR_COLS) return;
     if (isBlockedByEnemyTower(r,c)) return;
     const cell=document.getElementById(`corner-${r}-${c}`); if (cell) cell.classList.add('highlight');
   });
 }
-function highlightTowerMoves(row,col) {
+function highlightTowerMoves(row, col) {
   [[row-1,col],[row+1,col],[row,col-1],[row,col+1]].forEach(([r,c])=>{
     if (r<0||r>=FIELD_ROWS||c<0||c>=FIELD_COLS) return;
-    const taken=(boardState.towers||[]).some(t=>t.isAlive&&t.row===r&&t.col===c)||(boardState.kings||[]).some(k=>k.isAlive&&k.row===r&&k.col===c);
+    const taken=(boardState.towers||[]).some(t=>t.isAlive&&t.row===r&&t.col===c)
+             ||(boardState.kings||[]).some(k=>k.isAlive&&k.row===r&&k.col===c);
     if (!taken) { const f=document.getElementById(`field-${r}-${c}`); if(f) f.classList.add('highlight'); }
   });
 }
-function isBlockedByEnemyTower(cr,cc) {
-  const enemy=currentOwner()===0?1:0;
+function isBlockedByEnemyTower(cr, cc) {
+  const enemy = currentOwner()===O_P1 ? O_P2 : O_P1;
   return (boardState.towers||[]).some(t=>{
-    if (t.owner!==enemy||!t.isAlive) return false;
-    return [[t.row,t.col],[t.row,t.col+1],[t.row+1,t.col],[t.row+1,t.col+1]].some(([r,c])=>r===cr&&c===cc);
+    if (t.owner!==enemy || !t.isAlive) return false;
+    // Wieża na polu (r,c) blokuje narożniki: (r,c),(r,c+1),(r+1,c),(r+1,c+1)
+    return [[t.row,t.col],[t.row,t.col+1],[t.row+1,t.col],[t.row+1,t.col+1]]
+           .some(([r,c])=>r===cr&&c===cc);
   });
 }
 function isValidCornerMove(fr,fc,tr,tc) { const dr=Math.abs(tr-fr),dc=Math.abs(tc-fc); return (dr===1&&dc===0)||(dr===0&&dc===1); }
 function isValidTowerMove(fr,fc,tr,tc)  { const dr=Math.abs(tr-fr),dc=Math.abs(tc-fc); return (dr===1&&dc===0)||(dr===0&&dc===1); }
 function clearHighlights() {
   document.querySelectorAll('.corner-cell.highlight').forEach(c=>c.classList.remove('highlight'));
-  document.querySelectorAll('.field.highlight').forEach(f=>f.classList.remove('highlight'));
+  document.querySelectorAll('.field.highlight').forEach(f=>{f.classList.remove('highlight'); f.style.outline='';});
 }
 
 // ── TURA ──
-function updateConfirmBtn() { document.getElementById('confirm-turn-btn').disabled=!planned.pawnAction; updatePlannedDisplay(); }
+function updateConfirmBtn() {
+  const isMyTurn = currentOwner() === myOwner();
+  let statusText = '';
+  if (!planned.pawnAction) statusText = '❗ Musisz wykonać ruch pionkiem';
+  else if (!isMyTurn)       statusText = '❗ Nie twoja tura!';
+  else                      statusText = '✅ Możesz zatwierdzić turę';
+  document.getElementById('confirm-turn-btn').disabled = !planned.pawnAction || !isMyTurn;
+  document.getElementById('turn-status').textContent = statusText;
+  updatePlannedDisplay();
+}
 function updatePlannedDisplay() {
   const parts=[];
   if (planned.pawnAction)      parts.push(`⚔ Pionek → (${planned.pawnAction.toRow},${planned.pawnAction.toCol})`);
@@ -650,9 +744,20 @@ function updatePlannedDisplay() {
 }
 async function confirmTurn() {
   if (!planned.pawnAction) return;
-  const r=await api('POST',`/game/${currentGameId}/turn`,{pawnAction:planned.pawnAction,bonusPawnAction:planned.bonusPawnAction||null,towerAction:planned.towerAction||null});
-  if (r.ok) { addLog('✓ Tura wykonana'); resetTurnPlan(); await refreshGame(); }
-  else { addLog('✗ '+(typeof r.data==='string'?r.data:JSON.stringify(r.data))); }
+  if (currentOwner() !== myOwner()) { addLog('✗ Nie twoja tura!'); return; }
+  const r=await api('POST',`/game/${currentGameId}/turn`,{
+    pawnAction:planned.pawnAction,
+    bonusPawnAction:planned.bonusPawnAction||null,
+    towerAction:planned.towerAction||null
+  });
+  if (r.ok) {
+    addLog('✓ Tura wykonana');
+    resetTurnPlan();
+    userInteracting=false;
+    await refreshGame();
+  } else {
+    addLog('✗ '+(typeof r.data==='string'?r.data:JSON.stringify(r.data)));
+  }
 }
 function resetTurnPlan() {
   planned={pawnAction:null,bonusPawnAction:null,towerAction:null,bonusPawnId:null};
@@ -666,17 +771,92 @@ function resetTurnPlan() {
 }
 
 // ── UI ──
+function updatePossibleMoves() {
+  const movesEl = document.getElementById('possible-moves');
+  if (!currentGameData || !movesEl || !boardState) return;
+  const me = myOwner();
+  const isMyTurn = currentOwner() === me;
+  const moveItems = []; // { label, action }
+
+  (boardState.pawns||[]).filter(p=>p.isAlive&&p.owner===me).forEach(pawn=>{
+    [[pawn.row-1,pawn.col],[pawn.row+1,pawn.col],[pawn.row,pawn.col-1],[pawn.row,pawn.col+1]].forEach(([r,c])=>{
+      if (r<0||r>=COR_ROWS||c<0||c>=COR_COLS) return;
+      if (isBlockedByEnemyTower(r,c)) return;
+      const target=(boardState.pawns||[]).find(p=>p.isAlive&&p.row===r&&p.col===c);
+      if (target&&target.owner===me&&target.id!==pawn.id)
+        moveItems.push({ label:`⚔ Pionek #${pawn.id} → bonus #${target.id} (${r},${c})`, type:'pawn', pawnId:pawn.id, toRow:r, toCol:c });
+      else if (!target || (target.owner!==me))
+        moveItems.push({ label:`⚔ Pionek #${pawn.id} → (${r},${c})`, type:'pawn', pawnId:pawn.id, toRow:r, toCol:c });
+    });
+  });
+
+  (boardState.towers||[]).filter(t=>t.isAlive&&t.owner===me).forEach(tower=>{
+    [[tower.row-1,tower.col],[tower.row+1,tower.col],[tower.row,tower.col-1],[tower.row,tower.col+1]].forEach(([r,c])=>{
+      if (r<0||r>=FIELD_ROWS||c<0||c>=FIELD_COLS) return;
+      const taken=(boardState.towers||[]).some(t=>t.isAlive&&t.row===r&&t.col===c)||(boardState.kings||[]).some(k=>k.isAlive&&k.row===r&&k.col===c);
+      if (!taken) moveItems.push({ label:`🗼 Wieża #${tower.id} → (${r},${c})`, type:'tower', towerId:tower.id, towerFromRow:tower.row, towerFromCol:tower.col, toRow:r, toCol:c });
+    });
+  });
+
+  if (!moveItems.length) { movesEl.innerHTML='<span style="color:var(--silver)">Brak dostępnych ruchów</span>'; return; }
+
+  movesEl.innerHTML = moveItems.map((m,i)=>{
+    if (!isMyTurn) return `<div style="color:var(--silver);font-size:0.75rem;padding:2px 0">${m.label}</div>`;
+    return `<div class="move-btn" onclick="executeMoveFromList(${i})">${m.label}</div>`;
+  }).join('');
+
+  // Zapisz moveItems globalnie żeby onclick mógł je odczytać
+  window._moveItems = moveItems;
+}
+
+function executeMoveFromList(idx) {
+  const m = window._moveItems?.[idx];
+  if (!m) return;
+
+  if (m.type === 'pawn') {
+    // Wykonaj ruch pionkiem bezpośrednio
+    const pawn = (boardState.pawns||[]).find(p=>p.id===m.pawnId&&p.isAlive);
+    if (!pawn) return;
+    planned.pawnAction = { type:'MovePawn', pieceId:pawn.id, toRow:m.toRow, toCol:m.toCol };
+    // Sprawdź bonus
+    const ally = (boardState.pawns||[]).find(p=>p.row===m.toRow&&p.col===m.toCol&&p.isAlive&&p.owner===myOwner()&&p.id!==pawn.id);
+    if (ally) { planned.bonusPawnId=ally.id; document.getElementById('mode-bonus').disabled=false; }
+    else { planned.bonusPawnId=null; document.getElementById('mode-bonus').disabled=true; planned.bonusPawnAction=null; }
+    addLog(`⚔ Pionek #${pawn.id} → (${m.toRow},${m.toCol})`);
+    selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
+
+  } else if (m.type === 'tower') {
+    if (!planned.pawnAction) {
+      addLog('⚠ Najpierw wykonaj ruch pionkiem');
+      return;
+    }
+    planned.towerAction = { type:'MoveTower', pieceId:m.towerId, toRow:m.toRow, toCol:m.toCol };
+    addLog(`🗼 Wieża #${m.towerId} → (${m.toRow},${m.toCol})`);
+    selectedPiece=null; clearHighlights(); renderBoard(); updateConfirmBtn();
+  }
+}
+
+function updateMyPlayerInfo() {
+  const infoEl = document.getElementById('my-player-text');
+  const dot    = document.querySelector('#my-player-info span');
+  if (!currentGameData||!infoEl) return;
+  const me = myOwner();
+  if (me===O_P1) { infoEl.textContent='Ty jesteś Gracz 1 (niebieski)'; if(dot) dot.style.color='var(--blue)'; }
+  else           { infoEl.textContent='Ty jesteś Gracz 2 (czerwony)';  if(dot) dot.style.color='var(--red)'; }
+}
+
 function updateTurnBar() {
   const bar=document.getElementById('turn-bar'); const ind=document.getElementById('turn-indicator');
   if (!currentGameData) return;
   if (currentGameData.status===0) { bar.textContent='Oczekiwanie na przeciwnika...'; ind.textContent='—'; return; }
   if (currentGameData.status===2) { bar.textContent='Koniec gry'; ind.textContent='Koniec'; return; }
-  const isP1=currentOwner()===0;
-  bar.textContent=isP1?'🔵 Tura Gracza 1':'🔴 Tura Gracza 2';
-  bar.style.borderColor=isP1?'var(--blue)':'var(--red)';
-  ind.textContent=isP1?'Gracz 1 (Niebieski)':'Gracz 2 (Czerwony)';
-  ind.style.color=isP1?'var(--blue)':'var(--red)';
+  const isP1Turn = currentOwner()===O_P1;
+  bar.textContent = isP1Turn ? '🔵 Tura Gracza 1' : '🔴 Tura Gracza 2';
+  bar.style.borderColor = isP1Turn ? 'var(--blue)' : 'var(--red)';
+  ind.textContent = isP1Turn ? 'Gracz 1 (Niebieski)' : 'Gracz 2 (Czerwony)';
+  ind.style.color = isP1Turn ? 'var(--blue)' : 'var(--red)';
 }
+
 function addLog(msg) {
   const log=document.getElementById('action-log');
   const e=document.createElement('div'); e.className='log-entry'; e.textContent=msg;
@@ -691,6 +871,77 @@ function showGameOver(winnerId) {
 }
 
 if (token) showLobby();
+
+// ── KLAWIATURA ──
+document.addEventListener('keydown', function(e) {
+  if (!currentGameData || currentGameData.status !== 1) return;
+  if (currentOwner() !== myOwner()) return;
+
+  if (e.key.startsWith('Arrow')) { e.preventDefault(); handleArrowKey(e.key); return; }
+  if (e.key==='Tab') { e.preventDefault(); selectNextPiece(); return; }
+  if (e.key===' ' && planned.pawnAction) { e.preventDefault(); confirmTurn(); return; }
+  if (e.key==='Escape') { e.preventDefault(); selectedPiece=null; clearHighlights(); renderBoard(); return; }
+  if (e.key>='1'&&e.key<='4') {
+    e.preventDefault();
+    const modes=['pawn','bonus','tower','resurrect'];
+    setMode(modes[parseInt(e.key)-1]);
+  }
+});
+
+function handleArrowKey(key) {
+  if (!selectedPiece) { selectPieceInDirection(key); return; }
+  let r=selectedPiece.row, c=selectedPiece.col;
+  if (key==='ArrowUp')    r--;
+  if (key==='ArrowDown')  r++;
+  if (key==='ArrowLeft')  c--;
+  if (key==='ArrowRight') c++;
+  if (selectedPiece.type==='pawn') {
+    if (r>=0&&r<COR_ROWS&&c>=0&&c<COR_COLS&&isValidCornerMove(selectedPiece.row,selectedPiece.col,r,c))
+      onCornerClick(r,c);
+  } else if (selectedPiece.type==='tower') {
+    if (r>=0&&r<FIELD_ROWS&&c>=0&&c<FIELD_COLS&&isValidTowerMove(selectedPiece.row,selectedPiece.col,r,c))
+      onFieldClick(r,c);
+  }
+}
+
+function selectPieceInDirection(direction) {
+  const me = myOwner();
+  let pieces = currentMode==='tower'
+    ? (boardState.towers||[]).filter(t=>t.isAlive&&t.owner===me).map(t=>({...t,type:'tower'}))
+    : (boardState.pawns||[]).filter(p=>p.isAlive&&p.owner===me).map(p=>({...p,type:'pawn'}));
+  if (!pieces.length) return;
+  const cr=selectedPiece?.row??COR_ROWS/2, cc=selectedPiece?.col??COR_COLS/2;
+  let best=null, minD=Infinity;
+  pieces.forEach(piece=>{
+    let ok=false;
+    if (direction==='ArrowUp'&&piece.row<cr)    ok=true;
+    if (direction==='ArrowDown'&&piece.row>cr)  ok=true;
+    if (direction==='ArrowLeft'&&piece.col<cc)  ok=true;
+    if (direction==='ArrowRight'&&piece.col>cc) ok=true;
+    if (!ok) return;
+    const d=Math.abs(piece.row-cr)+Math.abs(piece.col-cc);
+    if (d<minD){minD=d;best=piece;}
+  });
+  if (!best) return;
+  selectedPiece={type:best.type,id:best.id,row:best.row,col:best.col};
+  clearHighlights();
+  best.type==='pawn'?highlightPawnMoves(best.row,best.col):highlightTowerMoves(best.row,best.col);
+  renderBoard();
+}
+
+function selectNextPiece() {
+  const me=myOwner();
+  let pieces=currentMode==='tower'
+    ?(boardState.towers||[]).filter(t=>t.isAlive&&t.owner===me).map(t=>({...t,type:'tower'}))
+    :(boardState.pawns||[]).filter(p=>p.isAlive&&p.owner===me).map(p=>({...p,type:'pawn'}));
+  if (!pieces.length) return;
+  let idx=selectedPiece?pieces.findIndex(p=>p.id===selectedPiece.id&&p.type===selectedPiece.type):-1;
+  const next=pieces[(idx+1)%pieces.length];
+  selectedPiece={type:next.type,id:next.id,row:next.row,col:next.col};
+  clearHighlights();
+  next.type==='pawn'?highlightPawnMoves(next.row,next.col):highlightTowerMoves(next.row,next.col);
+  renderBoard();
+}
 </script>
 </body>
 </html>

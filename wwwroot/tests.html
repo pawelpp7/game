@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regnum - Automatyczne Testy</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+        .test-container { max-width: 900px; margin: 0 auto; }
+        .test-section { background: #2a2a2a; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .test-result { padding: 10px; margin: 5px 0; border-radius: 4px; font-size: 14px; }
+        .test-pass { background: #2d5a2d; border: 1px solid #4a8c4a; }
+        .test-fail { background: #5a2d2d; border: 1px solid #8c4a4a; }
+        .test-info { background: #2d4a5a; border: 1px solid #4a7a8c; }
+        button { background: #4c7ac9; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; font-size: 14px; }
+        button:hover { background: #5a8ad9; }
+        .log { background: #111; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        .status { padding: 12px; margin: 10px 0; border-radius: 4px; font-weight: bold; font-size: 15px; }
+        .status.success { background: #2d5a2d; }
+        .status.error   { background: #5a2d2d; }
+        .status.running { background: #5a4a2d; }
+        details summary { cursor: pointer; color: #aaa; font-size: 12px; margin-top: 4px; }
+        pre { background: #111; padding: 8px; border-radius: 4px; font-size: 11px; max-height: 150px; overflow: auto; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+<div class="test-container">
+    <h1>🎮 Regnum — Automatyczne Testy</h1>
+
+    <div class="test-section">
+        <h2>🔧 Panel Sterowania</h2>
+        <button onclick="runAllTests()">▶️ Wszystkie testy</button>
+        <button onclick="runBasicTests()">📋 Podstawowe</button>
+        <button onclick="runMovementTests()">🏃 Ruch</button>
+        <button onclick="runBotSimulation()">🤖 Symulacja botów</button>
+        <button onclick="clearResults()">🗑️ Wyczyść</button>
+    </div>
+
+    <div id="status" class="status running">⏸️ Oczekiwanie...</div>
+
+    <div class="test-section">
+        <h2>📊 Wyniki</h2>
+        <div id="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+</div>
+
+<script>
+// ── KONFIGURACJA ──────────────────────────────────────────
+const API = 'http://localhost:5085/api';
+
+// Stan testów — przechowuje dane między testami
+let testResults = [];
+let p1Token = null;  // gracz 1 (twórca gry)
+let p1Id    = null;
+let p2Token = null;  // gracz 2 (dołączający)
+let p2Id    = null;
+let gameId  = null;
+
+// ── HELPERS ───────────────────────────────────────────────
+function log(msg, type = 'info') {
+    const el = document.getElementById('log');
+    const d  = document.createElement('div');
+    const t  = new Date().toLocaleTimeString();
+    d.innerHTML = `<span style="color:#555">[${t}]</span> ${msg}`;
+    d.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : '#ccc';
+    el.appendChild(d);
+    el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(msg, type = 'running') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = `status ${type}`;
+}
+
+function addResult(name, passed, msg, details = null) {
+    const el  = document.getElementById('results');
+    const div = document.createElement('div');
+    div.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
+    let html = `<strong>${passed ? '✅' : '❌'} ${name}</strong> — ${msg}`;
+    if (details) {
+        html += `<details><summary>Szczegóły</summary><pre>${JSON.stringify(details, null, 2)}</pre></details>`;
+    }
+    div.innerHTML = html;
+    el.appendChild(div);
+    testResults.push({ name, passed });
+    log(`${passed ? '✅' : '❌'} ${name}: ${msg}`, passed ? 'success' : 'error');
+    return passed;
+}
+
+function addInfo(msg) {
+    const el  = document.getElementById('results');
+    const div = document.createElement('div');
+    div.className = 'test-result test-info';
+    div.innerHTML = `ℹ️ ${msg}`;
+    el.appendChild(div);
+    log(`ℹ️ ${msg}`);
+}
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Wywołanie API z wybranym tokenem
+async function call(method, path, body = null, token = p1Token) {
+    try {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+        if (body)  opts.body = JSON.stringify(body);
+        const res  = await fetch(API + path, opts);
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = text; }
+        return { ok: res.ok, status: res.status, data };
+    } catch (e) {
+        log(`Błąd sieci: ${e.message}`, 'error');
+        return { ok: false, status: 0, data: e.message };
+    }
+}
+
+// Wyciągnij userId z JWT (bez weryfikacji podpisu)
+function decodeUserId(token) {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // ASP.NET Core zapisuje nameidentifier pod tym kluczem
+        const key = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
+        return parseInt(payload[key] || payload.sub || '0');
+    } catch { return null; }
+}
+
+// boardState z API to STRING JSON — zawsze parsuj
+function parseBoard(gameData) {
+    if (!gameData?.boardState) return null;
+    if (typeof gameData.boardState === 'string') {
+        try { return JSON.parse(gameData.boardState); } catch { return null; }
+    }
+    return gameData.boardState; // już obiekt
+}
+
+// owner to LICZBA: 0 = Player1, 1 = Player2
+const OWNER = { P1: 0, P2: 1 };
+
+// ── TESTY PODSTAWOWE ──────────────────────────────────────
+
+async function testConnection() {
+    log('Testowanie połączenia z API...');
+    // Endpoint publiczny — register zwraca 400 przy złych danych, ale odpowiada
+    const r = await call('POST', '/auth/register', { username: '', password: '' }, null);
+    if (r.status !== 0) {
+        return addResult('Połączenie z API', true, `API odpowiada na porcie 5085 (status HTTP: ${r.status})`);
+    }
+    return addResult('Połączenie z API', false, `Brak połączenia — sprawdź czy serwer działa na ${API}`, r);
+}
+
+async function testRegisterP1() {
+    log('Rejestracja Gracza 1...');
+    const username = `p1_${Date.now()}`;
+    const r = await call('POST', '/auth/register', { username, password: 'test123' }, null);
+    if (!r.ok || !r.data.token) {
+        return addResult('Rejestracja Gracza 1', false, `Błąd: ${JSON.stringify(r.data)}`, r.data);
+    }
+    p1Token = r.data.token;
+    p1Id    = decodeUserId(p1Token);
+    return addResult('Rejestracja Gracza 1', true, `"${username}" zarejestrowany, ID: ${p1Id}`);
+}
+
+async function testRegisterP2() {
+    log('Rejestracja Gracza 2...');
+    const username = `p2_${Date.now()}`;
+    const r = await call('POST', '/auth/register', { username, password: 'test123' }, null);
+    if (!r.ok || !r.data.token) {
+        return addResult('Rejestracja Gracza 2', false, `Błąd: ${JSON.stringify(r.data)}`, r.data);
+    }
+    p2Token = r.data.token;
+    p2Id    = decodeUserId(p2Token);
+    return addResult('Rejestracja Gracza 2', true, `"${username}" zarejestrowany, ID: ${p2Id}`);
+}
+
+async function testCreateGame() {
+    log('Tworzenie gry przez Gracza 1...');
+    if (!p1Token) return addResult('Tworzenie gry', false, 'Brak tokena Gracza 1');
+    const r = await call('POST', '/game/create');
+    if (!r.ok || !r.data.id) {
+        return addResult('Tworzenie gry', false, `Błąd: ${JSON.stringify(r.data)}`, r.data);
+    }
+    gameId = r.data.id;
+    // status powinien być "Waiting" (string) lub 0 (int) — oba są ok
+    const statusOk = r.data.status === 'Waiting' || r.data.status === 0;
+    return addResult('Tworzenie gry', r.ok, `Gra #${gameId} utworzona, status: ${r.data.status}`);
+}
+
+async function testJoinGame() {
+    log('Dołączanie Gracza 2 do gry...');
+    if (!p2Token) return addResult('Dołączanie do gry', false, 'Brak tokena Gracza 2');
+    if (!gameId)  return addResult('Dołączanie do gry', false, 'Brak ID gry');
+
+    const r = await call('POST', `/game/${gameId}/join`, null, p2Token);
+    if (!r.ok) {
+        return addResult('Dołączanie do gry', false, `Błąd ${r.status}: ${JSON.stringify(r.data)}`, r.data);
+    }
+    const statusOk = r.data.status === 'InProgress' || r.data.status === 1;
+    return addResult('Dołączanie do gry', true,
+        `Gracz 2 dołączył, status gry: ${r.data.status} ${statusOk ? '✓' : '(nieoczekiwany status)'}`);
+}
+
+async function testGetGameState() {
+    log('Pobieranie stanu gry...');
+    if (!gameId) return addResult('Stan gry', false, 'Brak ID gry');
+
+    const r = await call('GET', `/game/${gameId}`);
+    if (!r.ok) return addResult('Stan gry', false, `Błąd ${r.status}`, r.data);
+
+    const board = parseBoard(r.data);
+    if (!board) {
+        return addResult('Stan gry', false, 'Nie można sparsować boardState — sprawdź format odpowiedzi', r.data);
+    }
+
+    const p1Pawns  = board.pawns?.filter(p => p.owner === OWNER.P1 && p.isAlive).length ?? 0;
+    const p2Pawns  = board.pawns?.filter(p => p.owner === OWNER.P2 && p.isAlive).length ?? 0;
+    const p1Towers = board.towers?.filter(t => t.owner === OWNER.P1 && t.isAlive).length ?? 0;
+    const p2Towers = board.towers?.filter(t => t.owner === OWNER.P2 && t.isAlive).length ?? 0;
+    const p1Kings  = board.kings?.filter(k => k.owner === OWNER.P1 && k.isAlive).length ?? 0;
+    const p2Kings  = board.kings?.filter(k => k.owner === OWNER.P2 && k.isAlive).length ?? 0;
+
+    const ok = p1Pawns > 0 && p2Pawns > 0 && p1Towers > 0 && p2Towers > 0;
+    addInfo(`Plansza: P1: ${p1Pawns} pionków, ${p1Towers} wież, ${p1Kings} królów | P2: ${p2Pawns} pionków, ${p2Towers} wież, ${p2Kings} królów`);
+    addInfo(`Status: ${r.data.status} | Aktualna tura: ${r.data.currentTurnPlayerId} | P1 ID: ${r.data.player1Id} | P2 ID: ${r.data.player2Id}`);
+
+    return addResult('Stan gry', ok,
+        ok ? `Plansza poprawna: ${board.pawns.length} pionków, ${board.towers.length} wież, ${board.kings.length} królów`
+           : 'Plansza niekompletna lub pusta');
+}
+
+// ── TESTY RUCHU ───────────────────────────────────────────
+
+// Pobierz grę i zwróć { game, board, isP1Turn, currentToken, ownerNum }
+async function getGameContext() {
+    const r = await call('GET', `/game/${gameId}`);
+    if (!r.ok) return null;
+    const board = parseBoard(r.data);
+    if (!board) return null;
+    const isP1Turn     = r.data.currentTurnPlayerId === r.data.player1Id;
+    const ownerNum     = isP1Turn ? OWNER.P1 : OWNER.P2;
+    const currentToken = isP1Turn ? p1Token : p2Token;
+    return { game: r.data, board, isP1Turn, ownerNum, currentToken };
+}
+
+// Znajdź pionek z wolnym ruchem
+function findPawnMove(board, ownerNum) {
+    for (const p of board.pawns.filter(p => p.isAlive && p.owner === ownerNum)) {
+        const moves = [
+            {row: p.row-1, col: p.col}, {row: p.row+1, col: p.col},
+            {row: p.row,   col: p.col-1}, {row: p.row, col: p.col+1}
+        ].filter(m => m.row >= 0 && m.row < 9 && m.col >= 0 && m.col < 8);
+        if (moves.length > 0) return { pawn: p, move: moves[0] };
+    }
+    return null;
+}
+
+// Znajdź wieżę z wolnym ruchem (nie zajętym przez inną figurę)
+function findTowerMove(board, ownerNum) {
+    for (const t of board.towers.filter(t => t.isAlive && t.owner === ownerNum)) {
+        const moves = [
+            {row: t.row-1, col: t.col}, {row: t.row+1, col: t.col},
+            {row: t.row,   col: t.col-1}, {row: t.row, col: t.col+1}
+        ].filter(m =>
+            m.row >= 0 && m.row < 8 && m.col >= 0 && m.col < 7 &&
+            !board.towers.some(x => x.isAlive && x.row === m.row && x.col === m.col) &&
+            !board.kings.some(x =>  x.isAlive && x.row === m.row && x.col === m.col)
+        );
+        if (moves.length > 0) return { tower: t, move: moves[0] };
+    }
+    return null;
+}
+
+async function testPawnMovement() {
+    log('Test ruchu pionkiem...');
+    if (!gameId || !p1Token) return addResult('Ruch pionkiem', false, 'Brak gry lub tokenów');
+
+    const ctx = await getGameContext();
+    if (!ctx) return addResult('Ruch pionkiem', false, 'Nie można pobrać stanu gry');
+
+    if (ctx.game.status !== 'InProgress' && ctx.game.status !== 1) {
+        return addResult('Ruch pionkiem', false, `Gra nie jest aktywna (status: ${ctx.game.status})`);
+    }
+
+    const found = findPawnMove(ctx.board, ctx.ownerNum);
+    if (!found) return addResult('Ruch pionkiem', false, `Brak ruchów pionków gracza ${ctx.ownerNum}`);
+
+    log(`Ruch pionkiem #${found.pawn.id} (owner=${found.pawn.owner}) z (${found.pawn.row},${found.pawn.col}) → (${found.move.row},${found.move.col})`);
+
+    const r = await call('POST', `/game/${gameId}/turn`, {
+        pawnAction:      { type: 'MovePawn', pieceId: found.pawn.id, toRow: found.move.row, toCol: found.move.col },
+        bonusPawnAction: null,
+        towerAction:     null
+    }, ctx.currentToken);
+
+    if (r.ok) {
+        // Zweryfikuj że pionek faktycznie się przesunął
+        const after = await call('GET', `/game/${gameId}`);
+        const boardAfter = parseBoard(after.data);
+        const movedPawn = boardAfter?.pawns?.find(p => p.id === found.pawn.id);
+        const actuallyMoved = movedPawn?.row === found.move.row && movedPawn?.col === found.move.col;
+
+        if (actuallyMoved) {
+            return addResult('Ruch pionkiem', true,
+                `Pionek #${found.pawn.id} przesunięty na (${found.move.row},${found.move.col}) — potwierdzone w bazie ✓`);
+        } else {
+            return addResult('Ruch pionkiem', false,
+                `API zwróciło OK, ale pionek w bazie nadal na (${movedPawn?.row},${movedPawn?.col}) zamiast (${found.move.row},${found.move.col}) — błąd zapisu!`);
+        }
+    }
+    return addResult('Ruch pionkiem', false, `Błąd API: ${JSON.stringify(r.data)}`, r.data);
+}
+
+async function testTowerMovement() {
+    log('Test ruchu wieżą...');
+    if (!gameId || !p1Token) return addResult('Ruch wieżą', false, 'Brak gry lub tokenów');
+
+    const ctx = await getGameContext();
+    if (!ctx) return addResult('Ruch wieżą', false, 'Nie można pobrać stanu gry');
+    if (ctx.game.status !== 'InProgress' && ctx.game.status !== 1) {
+        return addResult('Ruch wieżą', false, `Gra nie jest aktywna (status: ${ctx.game.status})`);
+    }
+
+    const pawnFound  = findPawnMove(ctx.board, ctx.ownerNum);
+    const towerFound = findTowerMove(ctx.board, ctx.ownerNum);
+
+    if (!pawnFound)  return addResult('Ruch wieżą', false, 'Brak ruchów dla pionka');
+    if (!towerFound) return addResult('Ruch wieżą', false, 'Brak ruchów dla wieży');
+
+    log(`Ruch: pionek #${pawnFound.pawn.id} → (${pawnFound.move.row},${pawnFound.move.col}), wieża #${towerFound.tower.id} → (${towerFound.move.row},${towerFound.move.col})`);
+
+    const r = await call('POST', `/game/${gameId}/turn`, {
+        pawnAction:      { type: 'MovePawn',  pieceId: pawnFound.pawn.id,    toRow: pawnFound.move.row,  toCol: pawnFound.move.col },
+        towerAction:     { type: 'MoveTower', pieceId: towerFound.tower.id,  toRow: towerFound.move.row, toCol: towerFound.move.col },
+        bonusPawnAction: null
+    }, ctx.currentToken);
+
+    if (r.ok) {
+        // Zweryfikuj ruch wieży w bazie
+        const after = await call('GET', `/game/${gameId}`);
+        const boardAfter = parseBoard(after.data);
+        const movedTower = boardAfter?.towers?.find(t => t.id === towerFound.tower.id);
+        const actuallyMoved = movedTower?.row === towerFound.move.row && movedTower?.col === towerFound.move.col;
+
+        if (actuallyMoved) {
+            return addResult('Ruch wieżą', true,
+                `Wieża #${towerFound.tower.id} przesunięta na (${towerFound.move.row},${towerFound.move.col}) — potwierdzone ✓`);
+        } else {
+            return addResult('Ruch wieżą', false,
+                `API OK ale wieża w bazie nadal na (${movedTower?.row},${movedTower?.col}) — błąd zapisu!`);
+        }
+    }
+    return addResult('Ruch wieżą', false, `Błąd API: ${JSON.stringify(r.data)}`, r.data);
+}
+
+async function testTurnSwitch() {
+    log('Test zmiany tury...');
+    if (!gameId) return addResult('Zmiana tury', false, 'Brak gry');
+
+    const before = await call('GET', `/game/${gameId}`);
+    if (!before.ok) return addResult('Zmiana tury', false, 'Błąd pobierania gry');
+
+    const turnBefore = before.data.currentTurnPlayerId;
+    const ctx = await getGameContext();
+    if (!ctx) return addResult('Zmiana tury', false, 'Błąd kontekstu');
+
+    const pawnFound = findPawnMove(ctx.board, ctx.ownerNum);
+    if (!pawnFound) return addResult('Zmiana tury', false, 'Brak ruchów do wykonania');
+
+    await call('POST', `/game/${gameId}/turn`, {
+        pawnAction:      { type: 'MovePawn', pieceId: pawnFound.pawn.id, toRow: pawnFound.move.row, toCol: pawnFound.move.col },
+        bonusPawnAction: null,
+        towerAction:     null
+    }, ctx.currentToken);
+
+    const after = await call('GET', `/game/${gameId}`);
+    const turnAfter = after.data.currentTurnPlayerId;
+
+    if (turnBefore !== turnAfter) {
+        return addResult('Zmiana tury', true, `Tura przeszła z gracza ${turnBefore} na ${turnAfter} ✓`);
+    }
+    return addResult('Zmiana tury', false, `Tura NIE zmieniła się — nadal gracz ${turnAfter}`);
+}
+
+// ── SYMULACJA BOTÓW ───────────────────────────────────────
+
+async function runBotSimulation() {
+    setStatus('🤖 Symulacja botów...', 'running');
+
+    // Jeśli nie mamy graczy/gry — stwórz nowe
+    if (!p1Token || !p2Token || !gameId) {
+        log('Brak graczy/gry — tworzę nowe...');
+        await testRegisterP1();
+        await testRegisterP2();
+        await testCreateGame();
+        await testJoinGame();
+        await sleep(300);
+    }
+
+    const maxTurns = 10;
+    let turnCount  = 0;
+    let botMoves   = { p1: [], p2: [] };
+
+    addInfo(`🤖 Symulacja: ${maxTurns} tur (po ${maxTurns/2} na każdego gracza)`);
+
+    while (turnCount < maxTurns) {
+        const ctx = await getGameContext();
+        if (!ctx) { log('Błąd pobierania stanu gry', 'error'); break; }
+        if (ctx.game.status === 'Finished' || ctx.game.status === 2) {
+            addInfo(`🏁 Gra skończyła się po ${turnCount} turach! Zwycięzca: ${ctx.game.winnerId}`);
+            break;
+        }
+
+        const playerLabel = ctx.isP1Turn ? 'Gracz 1' : 'Gracz 2';
+        const pawnFound   = findPawnMove(ctx.board, ctx.ownerNum);
+
+        if (!pawnFound) {
+            log(`${playerLabel}: brak ruchów pionkami`, 'error');
+            break;
+        }
+
+        const body = {
+            pawnAction:      { type: 'MovePawn', pieceId: pawnFound.pawn.id, toRow: pawnFound.move.row, toCol: pawnFound.move.col },
+            bonusPawnAction: null,
+            towerAction:     null
+        };
+
+        // Co drugi ruch dodaj też ruch wieżą
+        if (turnCount % 3 === 0) {
+            const towerFound = findTowerMove(ctx.board, ctx.ownerNum);
+            if (towerFound) {
+                body.towerAction = { type: 'MoveTower', pieceId: towerFound.tower.id, toRow: towerFound.move.row, toCol: towerFound.move.col };
+            }
+        }
+
+        const r = await call('POST', `/game/${gameId}/turn`, body, ctx.currentToken);
+        const desc = `Tura ${turnCount+1}: ${playerLabel} — pionek #${pawnFound.pawn.id} → (${pawnFound.move.row},${pawnFound.move.col})${body.towerAction ? ` + wieża #${body.towerAction.pieceId}` : ''}`;
+
+        if (r.ok) {
+            (ctx.isP1Turn ? botMoves.p1 : botMoves.p2).push(`✓ ${desc}`);
+            log(desc, 'success');
+        } else {
+            const err = typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
+            (ctx.isP1Turn ? botMoves.p1 : botMoves.p2).push(`✗ ${desc} → ${err}`);
+            log(`Błąd: ${err}`, 'error');
+        }
+
+        turnCount++;
+        await sleep(300);
+    }
+
+    // Pokaż wyniki symulacji
+    const el = document.getElementById('results');
+    const div = document.createElement('div');
+    div.className = 'test-result test-info';
+    div.innerHTML = `
+        <strong>🤖 Symulacja botów — ${turnCount} tur</strong><br><br>
+        <b style="color:#4c7ac9">Gracz 1:</b><br>
+        ${botMoves.p1.map(m=>`• ${m}`).join('<br>') || '— brak ruchów —'}<br><br>
+        <b style="color:#c94c4c">Gracz 2:</b><br>
+        ${botMoves.p2.map(m=>`• ${m}`).join('<br>') || '— brak ruchów —'}
+    `;
+    el.appendChild(div);
+
+    const allOk = [...botMoves.p1, ...botMoves.p2].every(m => m.startsWith('✓'));
+    setStatus(`🤖 Symulacja zakończona: ${turnCount} tur, ${allOk ? 'wszystko OK' : 'były błędy'}`,
+              allOk ? 'success' : 'error');
+}
+
+// ── GRUPY TESTÓW ─────────────────────────────────────────
+
+async function runBasicTests() {
+    setStatus('🔄 Testy podstawowe...', 'running');
+    clearResults();
+    testResults = [];
+
+    const tests = [
+        testConnection,
+        testRegisterP1,
+        testRegisterP2,
+        testCreateGame,
+        testJoinGame,
+        testGetGameState
+    ];
+
+    let passed = 0;
+    for (const t of tests) {
+        try { if (await t()) passed++; }
+        catch(e) { log(`Wyjątek: ${e.message}`, 'error'); }
+        await sleep(200);
+    }
+
+    setStatus(`📋 Testy podstawowe: ${passed}/${tests.length} ✓`,
+              passed === tests.length ? 'success' : 'error');
+}
+
+async function runMovementTests() {
+    setStatus('🔄 Testy ruchu...', 'running');
+
+    // Upewnij się że mamy aktywną grę
+    if (!p1Token || !p2Token || !gameId) {
+        log('Brak aktywnej gry — uruchamiam testy podstawowe najpierw...');
+        await runBasicTests();
+        await sleep(500);
+    }
+
+    const tests = [
+        testPawnMovement,
+        testTurnSwitch,
+        testTowerMovement
+    ];
+
+    let passed = 0;
+    for (const t of tests) {
+        try { if (await t()) passed++; }
+        catch(e) { log(`Wyjątek: ${e.message}`, 'error'); }
+        await sleep(300);
+    }
+
+    setStatus(`🏃 Testy ruchu: ${passed}/${tests.length} ✓`,
+              passed === tests.length ? 'success' : 'error');
+}
+
+async function runAllTests() {
+    clearResults();
+    testResults = [];
+    setStatus('🔄 Uruchamianie wszystkich testów...', 'running');
+
+    await runBasicTests();
+    await sleep(500);
+    await runMovementTests();
+
+    const passed = testResults.filter(r => r.passed).length;
+    const total  = testResults.length;
+    setStatus(`🏁 Wszystkie testy: ${passed}/${total} ✓`,
+              passed === total ? 'success' : 'error');
+}
+
+function clearResults() {
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('log').innerHTML = '';
+    testResults = [];
+    p1Token = null; p1Id = null;
+    p2Token = null; p2Id = null;
+    gameId  = null;
+    setStatus('⏸️ Wyniki wyczyszczone');
+}
+
+window.onload = () => {
+    log('System testowy gotowy. Kliknij przycisk aby uruchomić testy.');
+};
+</script>
+</body>
+</html>
